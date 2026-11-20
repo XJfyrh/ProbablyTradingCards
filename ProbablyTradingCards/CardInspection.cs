@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace ProbablyTradingCards
 {
@@ -51,12 +52,20 @@ namespace ProbablyTradingCards
             var canvas = builder.Handle.root.GetComponentInParent<Canvas>();
             float availableHeight = Screen.height / canvas.scaleFactor;
             float availableWidth = Screen.width / canvas.scaleFactor;
-            bool showActions = canSwitchArt || canBook;
-            float chromeHeight = showActions ? 152 : 112;
+            var frame = builder.Handle.frame;
+            var close = frame?.closeButton?.transform as RectTransform;
+            bool showHeaderButton = canBook && close != null;
+            float chromeHeight = (canSwitchArt ? 152 : 112) + (canBook && !showHeaderButton ? 40 : 0);
             float artHeight = Mathf.Min(720, availableHeight - chromeHeight - 40, (availableWidth - 80) * 1.5f);
             float artWidth = artHeight / 1.5f;
             builder.SetSize(artWidth + 48, artHeight + chromeHeight).Center().SetDraggable(true).SetCloseOnEscape();
-            builder.BeginColumn(8, TextAnchor.UpperCenter).AddImage(oilSelected ? oilArt : art, artWidth, artHeight, "card_art");
+            builder.BeginColumn(8, TextAnchor.UpperCenter);
+            if (showHeaderButton)
+                ConfigureAppointmentButton(AddHeaderButton(builder, frame, close), item, card, condition);
+            else if (canBook)
+                ConfigureAppointmentButton(AddAppointmentButton(builder), item, card, condition);
+
+            builder.AddImage(oilSelected ? oilArt : art, artWidth, artHeight, "card_art");
             var image = builder.Last.image;
             image.preserveAspect = true;
             if (overlayWear && condition != 2 &&
@@ -73,7 +82,6 @@ namespace ProbablyTradingCards
                 wearImage.preserveAspect = true;
                 wearImage.raycastTarget = false;
             }
-            if (showActions) builder.BeginRow(8, TextAnchor.MiddleCenter);
             if (canSwitchArt)
             {
                 string SwitchLabel() => oilSelected ? "切换为蓝晒" : "切换为油画";
@@ -87,15 +95,39 @@ namespace ProbablyTradingCards
                     button.SetText(SwitchLabel());
                 });
             }
-            if (canBook) AddAppointmentButton(builder, item, card, condition);
-            if (showActions) builder.End();
             builder.AddLabel(card.Flavor, "card_flavor");
             builder.End().Show();
         }
 
-        private static void AddAppointmentButton(CustomUIBuilder builder, GameItem item, CardDefinition card, int condition)
+        private static CustomUIElement AddAppointmentButton(CustomUIBuilder builder) =>
+            builder.AddButton("", null, "card_appointment_action").Last;
+
+        private static CustomUIElement AddHeaderButton(CustomUIBuilder builder, CustomUIWindowFrame frame, RectTransform close)
         {
-            var action = builder.AddButton("", null, "card_appointment_action").Last;
+            const float width = 124;
+            const float gap = 8;
+            var header = new CustomUIBuilder(CustomUIManager.Instance, builder.Handle, (RectTransform)close.parent);
+            var button = AddAppointmentButton(header);
+            var rect = (RectTransform)button.root.transform;
+            var layout = button.root.GetComponent<LayoutElement>() ?? button.root.AddComponent<LayoutElement>();
+            layout.ignoreLayout = true;
+            rect.anchorMin = close.anchorMin;
+            rect.anchorMax = close.anchorMax;
+            rect.pivot = new Vector2(1f, close.pivot.y);
+            rect.anchoredPosition = close.anchoredPosition - new Vector2(close.rect.width * close.pivot.x + gap, 0f);
+            rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
+            rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, close.rect.height);
+            if (frame.titleText != null)
+            {
+                frame.titleText.margin += new Vector4(0, 0, width + gap, 0);
+                frame.titleText.enableWordWrapping = false;
+                frame.titleText.overflowMode = TMPro.TextOverflowModes.Ellipsis;
+            }
+            return button;
+        }
+
+        private static void ConfigureAppointmentButton(CustomUIElement action, GameItem item, CardDefinition card, int condition)
+        {
             RareCardAppointments.Appointment shownBooking = null;
 
             void Refresh()
