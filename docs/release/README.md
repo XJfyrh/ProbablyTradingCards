@@ -18,7 +18,7 @@ $gameDir = 'C:\Games\Probably Stolen'
 
 | 输出 | 用途 |
 | --- | --- |
-| `ProbablyTradingCards/` | 工坊内容目录，根目录有 `manifest.xml`。 |
+| `ProbablyTradingCards/` | 工坊内容目录，根目录有 `manifest.xml`、`LICENSE` 和 `CREDITS.md`。 |
 | `ProbablyTradingCards-v<版本>.zip` | GitHub Release 附件，解压后可把整个 `ProbablyTradingCards` 文件夹放进游戏的 `Mods`。 |
 | `SHA256SUMS.txt` | 与 ZIP 一起上传，供玩家核对下载。 |
 | `workshop-preview.png` | 默认工坊封面，和 VDF 一起保存在内容目录旁。 |

@@ -45,7 +45,7 @@
       <CardTextures Include="Textures\Cards\legends_album_bound.png;Textures\Cards\legends_album_sleeve.png" />
     </ItemGroup>
     <MakeDir Directories="$(PackageDir)" />
-    <Copy SourceFiles="$(TargetPath);manifest.xml;README.md;CREDITS.md" DestinationFolder="$(PackageDir)" />
+    <Copy SourceFiles="$(TargetPath);manifest.xml;README.md;@(ModLicenseFile)" DestinationFolder="$(PackageDir)" />
     <Copy SourceFiles="@(ModTextures)" DestinationFolder="$(PackageDir)\Textures\Items" />
     <Copy SourceFiles="@(CardTextures)" DestinationFolder="$(PackageDir)\Textures\Paper" />
   </Target>

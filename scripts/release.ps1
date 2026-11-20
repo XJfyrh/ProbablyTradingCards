@@ -106,7 +106,7 @@ try {
     & dotnet build (Join-Path $projectDir "$name.csproj") -c Release "-p:GameDir=$game" "-p:PythonExe=$PythonExe" "-p:PackageDir=$content" '-p:NativeValidation=false' '-p:UpdateSeriesIdentities=false'
     if ($LASTEXITCODE -ne 0) { throw "Release build failed ($LASTEXITCODE)." }
 
-    $required = @("$name.dll", 'manifest.xml', 'README.md', 'CREDITS.md')
+    $required = @("$name.dll", 'manifest.xml', 'README.md', 'CREDITS.md', 'LICENSE')
     $files = @(Get-ChildItem -LiteralPath $content -Recurse -Force -File | ForEach-Object {
         [IO.Path]::GetRelativePath($content, $_.FullName).Replace('\', '/')
     })

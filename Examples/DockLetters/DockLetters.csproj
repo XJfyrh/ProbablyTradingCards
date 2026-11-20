@@ -47,7 +47,7 @@
       <_TexturePath Include="@(_Texture->'$(_Package)/Textures/%(RecursiveDir)%(Filename)%(Extension)')" />
       <_StaleTexture Include="$(_Package)/Textures/Paper/card_set_*.png;$(_Package)/Textures/Items/card_set_*.png;$(_Package)/Textures/Items/set_*_pack.png;$(_Package)/Textures/Items/set_*_album.png" Exclude="@(_TexturePath)" />
     </ItemGroup>
-    <Copy SourceFiles="$(TargetPath);manifest.xml" DestinationFolder="$(_Package)" />
+    <Copy SourceFiles="$(TargetPath);manifest.xml;@(ModLicenseFile)" DestinationFolder="$(_Package)" />
     <Copy SourceFiles="@(_Texture)" DestinationFiles="@(_TexturePath)" />
     <Delete Files="@(_StaleTexture)" />
   </Target>
@@ -59,7 +59,7 @@
       <_Tool Include="$(_Tools)/export_series.py;$(_Tools)/card_textures.py" />
       <_Check Include="$(_Tools)/SeriesCheck/SeriesCheck.csproj;$(_Tools)/SeriesCheck/Program.cs" />
     </ItemGroup>
-    <Copy SourceFiles="$(MSBuildProjectFullPath);manifest.xml;ModEntry.cs;README.md;.gitignore" DestinationFolder="$(TemplateDir)" />
+    <Copy SourceFiles="$(MSBuildProjectFullPath);manifest.xml;ModEntry.cs;README.md;.gitignore;@(ModLicenseFile)" DestinationFolder="$(TemplateDir)" />
     <Copy SourceFiles="$(DirectoryBuildPropsPath)" DestinationFolder="$(TemplateDir)" Condition="Exists('$(DirectoryBuildPropsPath)')" />
     <Copy SourceFiles="@(_Source)" DestinationFiles="@(_Source->'$(TemplateDir)/Series/%(RecursiveDir)%(Filename)%(Extension)')" />
     <Copy SourceFiles="@(_Tool)" DestinationFolder="$(TemplateDir)/tools" />
