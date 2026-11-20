@@ -11,6 +11,8 @@ namespace ProbablyTradingCards
 
         public static bool IsDistributorDay(int day) => day >= 2 && day % 7 == 2;
 
+        internal static bool IsNightCollectorDay(int day) => day >= 5 && day % 7 == 5;
+
         public static int SellerPackCount(int day, Func<int, bool> roll)
         {
             int extraRolls = 2;

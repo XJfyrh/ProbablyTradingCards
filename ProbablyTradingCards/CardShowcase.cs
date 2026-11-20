@@ -35,18 +35,26 @@ namespace ProbablyTradingCards
         internal static void Register() => StoreClientListDict.storeClientDict[InvitationId] = Invite;
         internal static void Unregister() => StoreClientListDict.storeClientDict.Remove(InvitationId);
 
+        internal static Dictionary<int, int> BestDisplayedConditions(IEnumerable<GameItem> displayItems)
+        {
+            var cards = displayItems.SelectMany(item => item.IsTag(NativeItems.AlbumTag)
+                ? GraphUtils.FindChildrenType<GameItem>(item)
+                : Enumerable.Repeat(item, 1));
+            var best = new Dictionary<int, int>();
+            foreach (GameItem item in cards)
+            {
+                if (!TradingCardsApi.TryGetCard(item, out var card, out int condition)) continue;
+                if (!best.TryGetValue(card.Id, out int previous) || condition > previous) best[card.Id] = condition;
+            }
+            return best;
+        }
+
         private static List<Invitation> Calculate(StoreClientManager manager, bool trackerAlreadyUpdated)
         {
             var result = new List<Invitation>();
             var display = EmporiumEntry.Instance?.showcaseElement;
             if (display == null || PlayerStore.Instance.GetCurrentStoreAttractiveness() < 100) return result;
-            var best = new Dictionary<int, int>();
-            foreach (GameItem item in display.childItems)
-            {
-                if (!TradingCardsApi.TryGetCard(item, out var card, out int condition)) continue;
-                if (!best.TryGetValue(card.Id, out int previous) || condition > previous) best[card.Id] = condition;
-            }
-
+            var best = BestDisplayedConditions(display.childItems);
             int day = StoreStation.GetDayCounter();
             foreach (var profile in Collectors.Profiles)
             {
