@@ -18,7 +18,7 @@
 
 需要 .NET 10 SDK、本机游戏 DLL 和装有 Pillow 的 Python。可用 `-GameDir '游戏目录'` 指定游戏位置，用 `-PythonExe '解释器路径'` 选择 Python。脚本依次构建前置和两个扩展，核对构建扩展前后的前置 DLL 哈希，并用原版扫描器检查三个包。通过后会输出以 `PASS: add-on packages` 开头的结果。
 
-离线宿主启用两个扩展的正式 DLL，用原版物品目录检查两个作者的同名卡辑能共存，读回《码头来信》的原封包，并通过原版买家的成交回调交付三张人物卡。检查包括预览、道具卡、重复回调、恢复部分进度、单次发奖和禁用清理。游戏窗口、鼠标输入和完整存档流程在试玩中验证。[测试入口](Extensions/Program.cs) · [成交回归](Extensions/BountyChecks.cs)
+离线宿主启用两个扩展的正式 DLL，用原版物品目录检查两个作者的同名卡辑能共存，读回《码头来信》的原封包，并通过原版买家的成交回调交付三张人物卡。检查包括预览、道具卡、重复回调、恢复部分进度、单次发奖和禁用清理。游戏窗口、鼠标输入和完整存档流程在试玩中验证。[测试入口](Extensions/Program.cs)、[成交回归](Extensions/BountyChecks.cs)
 
 ## 用 Smoke 检查数值与保存内容
 
@@ -26,7 +26,7 @@
 dotnet run --project tests/Smoke/Smoke.csproj -c Release
 ```
 
-需要 .NET 10 SDK 及游戏自带的 `Newtonsoft.Json.dll`。游戏装在其他位置时，在命令末尾加 `"-p:GameDir=游戏安装目录"`。成功时控制台打印 `PASS`、检查数和已注册的系列键。[测试项目](Smoke/Smoke.csproj) · [检查项](Smoke/Program.cs)
+需要 .NET 10 SDK 及游戏自带的 `Newtonsoft.Json.dll`。游戏装在其他位置时，在命令末尾加 `"-p:GameDir=游戏安装目录"`。成功时控制台打印 `PASS`、检查数和已注册的系列键。[测试项目](Smoke/Smoke.csproj)、[检查项](Smoke/Program.cs)
 
 - 《空间站夜话》用 2,000 个固定种子分别生成混合货源包和原厂包，检查 JSON 往返、手撕损伤、刀具保留品相和重试结果。逐一输入 0–99 的随机值来核对出率、二封概率和三种货源的品相边界。
 - 《空间站传奇》检查四十张基础卡的分档、十一张异画、散货商的供货比例、整盒保底、内包存取，以及异画的开放窗口、命中边界和跨日重试。
@@ -52,7 +52,7 @@ $playerRoot = 'C:\Tools\probably-stolen-player-mcp'
 
 ## 用正式包跑一轮购买、拆包与读档
 
-从同一工作区构建并安装正式包，启用后重启游戏。准备一个到第 2 天、尚未开店的专用测试档，背包留出两包卡、一本集换册和三张单卡的位置。开店等发行商到访，选常规货单。需要复验星港收藏簿时，可以用第 9 天的档，把下表里的夜话包与集换册换成传奇瘦包与星港收藏簿。[正式包构建](../README.md#构建模组) · [发行商货单](../ProbablyTradingCards/README.md#发行商货单)
+从同一工作区构建并安装正式包，启用后重启游戏。准备一个到第 2 天、尚未开店的专用测试档，背包留出两包卡、一本集换册和三张单卡的位置。开店等发行商到访，选常规货单。需要复验星港收藏簿时，可以用第 9 天的档，把下表里的夜话包与集换册换成传奇瘦包与星港收藏簿。[正式包构建](../README.md#构建模组)、[发行商货单](../ProbablyTradingCards/README.md#发行商货单)
 
 用鼠标或上节的玩家工具完成每一行。操作后保持该画面，调用记录命令。截图需要游戏窗口在前台，从终端执行时可加 `--delay 5`，回车后切回游戏。`--player-root` 指向已安装的玩家工具，它的 Python 不在 `.venv` 时用 `--player-python` 指定。
 
@@ -110,7 +110,7 @@ python scripts/game_verify.py run --slot 3
 
 成功时返回 UTF-8 JSON，`status` 为 `passed`，`slot` 为本次槽号，`checks` 为通过的断言数。退出码 `0` 表示命令成功，`1` 表示检查失败，`2` 表示请求受阻或等待超时。默认等待 90 秒，可用 `--timeout 180` 延长。超时后，游戏中已经开始的检查仍可能继续。
 
-排查 CLI 与游戏的通信时，查看游戏数据目录下的 `ModData/probably_trading_cards/agent`。CLI 读取验证包写入的心跳时间，游戏收到请求后会核对会话、槽号和存档标识。修改这部分后，运行 `python tests/test_game_verify.py`，可在临时目录检验过期心跳、错误槽位、回执和超时。[CLI 源码](../scripts/game_verify.py) · [游戏端入口](NativeAgentBridge.cs)
+排查 CLI 与游戏的通信时，查看游戏数据目录下的 `ModData/probably_trading_cards/agent`。CLI 读取验证包写入的心跳时间，游戏收到请求后会核对会话、槽号和存档标识。修改这部分后，运行 `python tests/test_game_verify.py`，可在临时目录检验过期心跳、错误槽位、回执和超时。[CLI 源码](../scripts/game_verify.py)、[游戏端入口](NativeAgentBridge.cs)
 
 ## 原生检查覆盖哪些行为
 

@@ -2,7 +2,7 @@
 
 **Probably Trading Cards** 是《Probably Stolen》的简体中文模组。在空间站店铺里经营《空间站夜话》和《空间站传奇》两辑卡牌。向散货商和发行商进货，原封转卖或拆包，陈列稀有卡招揽收藏客，也可以把喜欢的卡留在集换册里。
 
-[订阅 Steam 创意工坊](https://steamcommunity.com/sharedfiles/filedetails/?id=3842861920) · [GitHub 安装包](https://github.com/XJfyrh/ProbablyTradingCards/releases/latest) · [玩家指南](ProbablyTradingCards/README.md) · [反馈与建议](https://github.com/XJfyrh/ProbablyTradingCards/issues/new/choose)
+[订阅 Steam 创意工坊](https://steamcommunity.com/sharedfiles/filedetails/?id=3842861920)、[GitHub 安装包](https://github.com/XJfyrh/ProbablyTradingCards/releases/latest)、[玩家指南](ProbablyTradingCards/README.md)、[反馈与建议](https://github.com/XJfyrh/ProbablyTradingCards/issues/new/choose)
 
 ![游戏实机截图，店里正在查看《空间站传奇》的食品券卡牌](docs/media/in-game-food-stamp.png)
 
@@ -36,11 +36,11 @@ dotnet build ProbablyTradingCards/ProbablyTradingCards.csproj -c Release
 
 | 想查什么 | 入口 |
 | --- | --- |
-| 出率、供货和顾客 | [卡池与供货](docs/design/卡池与供货.md) · [卡牌目录](docs/design/卡牌目录.md) · [顾客与展示柜](docs/design/顾客与展示柜.md) |
-| 收藏簿和存档 | [异画与收藏簿（含剧透）](docs/design/异画与收藏簿.md) · [物品与存档](docs/development/物品与存档.md) |
-| 卡面和包装 | [美术规范](docs/art/美术规范.md) · [美术导出](scripts/README.md) |
+| 出率、供货和顾客 | [卡池与供货](docs/design/卡池与供货.md)、[卡牌目录](docs/design/卡牌目录.md)、[顾客与展示柜](docs/design/顾客与展示柜.md) |
+| 收藏簿和存档 | [异画与收藏簿（含剧透）](docs/design/异画与收藏簿.md)、[物品与存档](docs/development/物品与存档.md) |
+| 卡面和包装 | [美术规范](docs/art/美术规范.md)、[美术导出](scripts/README.md) |
 | 尚未实装的点子 | [玩法构想](docs/ideas/玩法构想.md) |
-| 发布、许可和素材来源 | [发布指南](docs/release/README.md) · [代码许可证](LICENSE) · [授权范围与素材来源](ProbablyTradingCards/CREDITS.md) |
+| 发布、许可和素材来源 | [发布指南](docs/release/README.md)、[代码许可证](LICENSE)、[授权范围与素材来源](ProbablyTradingCards/CREDITS.md) |
 
 ## 参与贡献
 

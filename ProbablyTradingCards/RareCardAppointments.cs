@@ -141,7 +141,7 @@ namespace ProbablyTradingCards
             };
 
             string greeting = booking != null && CardGame.Catalogue.TryGetValue(booking.CardId, out var card)
-                ? $"我来收预约的「{card.Name}」，说好的 {booking.Price} 信用点。放上交易台就能成交，改主意的话直接送客。"
+                ? $"劳驾，说好的「{card.Name}」还在吗？{booking.Price} 信用点。肯割爱就把卡放上来，改主意了直接送客。"
                 : "这趟的预约已经结束了。";
             client.mainDialogue.SetText(BuyerName, greeting);
             client.AddBasicDialog();

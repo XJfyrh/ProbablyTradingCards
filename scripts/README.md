@@ -45,7 +45,7 @@ python -m venv .venv
 
 第一个脚本将两张磨损层叠在九张完好卡上，生成 18 张变体。第二个脚本从这 27 张卡面导出 16×32 的背包图标。打开 `artifacts/art-preview/preview-all.png` 查看九张完好卡面与图标的对照，`preview-rarity.png` 并排显示 C、R、SR 三个示例。卡包和集换册图标直接保存在 `Textures/Items/pack.png` 和 `album.png`。
 
-这三个脚本使用 Windows 的 `System.Drawing`，可通过 `-ProjectRoot` 指定模组项目副本。预览另支持 `-OutputDirectory`。[磨损合成](export_card_conditions.ps1) · [图标导出](export_card_icons.ps1) · [预览生成](preview_card_art.ps1)
+这三个脚本使用 Windows 的 `System.Drawing`，可通过 `-ProjectRoot` 指定模组项目副本。预览另支持 `-OutputDirectory`。[磨损合成](export_card_conditions.ps1)、[图标导出](export_card_icons.ps1)、[预览生成](preview_card_art.ps1)
 
 ## 导出《空间站传奇》
 

@@ -29,7 +29,7 @@ python -m venv .venv
 dotnet build -c Release "-p:GameDir=C:/Games/Probably Stolen"
 ```
 
-原样构建示例时，清单检查器会显示 `dock_letters/dock_demo · 2 张卡 · 第 2 天发售`。构建成功后，`dist/DockLetters/` 包含 `manifest.xml`、嵌有系列清单的 DLL、两张阅读图和六张背包图标。改名为 `HarborPost.csproj` 后，分发目录相应变为 `dist/HarborPost/`。
+原样构建示例时，清单检查器会显示 `dock_letters/dock_demo（2 张卡，第 2 天发售）`。构建成功后，`dist/DockLetters/` 包含 `manifest.xml`、嵌有系列清单的 DLL、两张阅读图和六张背包图标。改名为 `HarborPost.csproj` 后，分发目录相应变为 `dist/HarborPost/`。
 
 首次分发自己的卡辑前，在上述构建命令后加 `-p:UpdateSeriesIdentities=true`，生成并提交 `series-identities.json`。有这份清单后，普通构建会检查系列键、卡种编号、贴图键和包内张数。替换某张已分发单卡的画面时，沿用它的素材键。新增卡牌时生成新清单，查看差异后与卡辑一起提交。
 

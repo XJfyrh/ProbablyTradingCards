@@ -33,7 +33,7 @@ $content = '<发布目录>/ProbablyTradingCards'
 dotnet run --project tests/Extensions/Extensions.csproj -c Release "-p:GameDir=$gameDir" -- --scan-workshop "$content" "$gameDir"
 ```
 
-在专用测试档安装本次产出的正式包。按试玩步骤核对进货、拆包、收藏和保存重启，给每个检查点追加 `--release-dir '<发布目录>/ProbablyTradingCards'`，让工具比对本次的正式包。游戏内也可从 F8 控制台用 `mod-scan probably_trading_cards` 查看扫描结果。[官方扫描指南](https://github.com/dragonpan2/probably-stolen-modding/blob/main/ModdingGuide.md#checking-before-you-publish) · [正式包试玩](../../tests/README.md#用正式包跑一轮购买拆包与读档)
+在专用测试档安装本次产出的正式包。按试玩步骤核对进货、拆包、收藏和保存重启，给每个检查点追加 `--release-dir '<发布目录>/ProbablyTradingCards'`，让工具比对本次的正式包。游戏内也可从 F8 控制台用 `mod-scan probably_trading_cards` 查看扫描结果。[官方扫描指南](https://github.com/dragonpan2/probably-stolen-modding/blob/main/ModdingGuide.md#checking-before-you-publish)、[正式包试玩](../../tests/README.md#用正式包跑一轮购买拆包与读档)
 
 ## Steam 创意工坊
 

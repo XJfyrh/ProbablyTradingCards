@@ -105,7 +105,7 @@ namespace ProbablyTradingCards
                         ModHelper.GetModDataInt(ModEntry.ModId, PendingDockWeekKey, -1) == deliveryWeek.Value)
                         ModHelper.RemoveModData(ModEntry.ModId, PendingDockWeekKey);
                 }
-                client.mainDialogue.SetText(client.displayName, "老板，我周四带散包和拆出的单卡，今天这批可以验货。周六有位拆包爱好者专收没开过的散包。")
+                client.mainDialogue.SetText(client.displayName, "老板，今儿带了几包卡，还有两张拆出来的。封口你先瞧瞧。我周四都来，周六还有人专收没拆的包。")
                     .SetEndAction(PresentStock);
                 client.onItemSold = (_, __) => PresentStock();
             }

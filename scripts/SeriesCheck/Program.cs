@@ -25,7 +25,7 @@ foreach (string project in projects)
         if (series.Count == 0) throw new InvalidDataException($"前置 DLL 中没有属于 {owner} 的卡辑。");
         CheckIdentities(project, owner, series);
         foreach (CardSeries set in series)
-            Console.WriteLine($"{set.OwnerId}/{set.Key} · {set.Cards.Count} 张卡 · 第 {set.ReleaseDay} 天发售");
+            Console.WriteLine($"{set.OwnerId}/{set.Key}（{set.Cards.Count} 张卡，第 {set.ReleaseDay} 天发售）");
     }
     catch (Exception error)
     {

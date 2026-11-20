@@ -45,9 +45,9 @@ namespace ProbablyTradingCards
 
         internal static readonly Profile[] Profiles =
         {
-            new Profile(CollectorKind.Night, "collector", "夜班收藏客", "刚下班，想淘几张 C、R 或 SR 散卡，什么卡辑都行。",
+            new Profile(CollectorKind.Night, "collector", "夜班收藏客", "刚下班，想淘几张散卡。C、R、SR 都行。",
                 350, 450, 3, 1, CardCustomerRules.CollectorCooldown, false, new[] { 60, 45, 30 }),
-            new Profile(CollectorKind.Packs, "pack_fan", "拆包爱好者", "想拆几包卡。什么卡辑都行，我按封口开价，这趟最多收三包。",
+            new Profile(CollectorKind.Packs, "pack_fan", "拆包爱好者", "今天手痒，想拆几包。哪辑都行，我先瞧瞧封口。这趟最多带三包。",
                 600, 900, 4, 6, 3, false, new[] { 25, 30, 30 }),
             new Profile(CollectorKind.Subject, "subject_collector", "专题收藏客", "",
                 1200, 1600, 5, SubjectOrderStart, 0, false, new[] { 0, 0, 0 }),
@@ -55,7 +55,7 @@ namespace ProbablyTradingCards
                 2200, 3000, 6, StationLegends.ReleaseDay, 5, true, new[] { 10, 18, 24 }),
             new Profile(CollectorKind.Alternate, "alternate_collector", "异画寻访客", "听说这儿能找到异画。你要是肯割爱，开个价吧。",
                 3000, 4200, 6, StationLegends.ReleaseDay, 7, true, new[] { 0, 3, 6 }),
-            new Profile(CollectorKind.Box, "slim_box_collector", "原封收藏客", "传奇瘦盒和肥盒我都收，这趟带走一盒。让我看一下封条。",
+            new Profile(CollectorKind.Box, "slim_box_collector", "原封收藏客", "有《空间站传奇》的原封整盒吗？瘦盒、肥盒都行，我带一盒。先让我看看封条。",
                 4200, 5600, 8, StationLegends.SlimBoxDay, 5, true, new[] { 5, 9, 15 })
         };
 
@@ -109,7 +109,7 @@ namespace ProbablyTradingCards
         private static string SubjectLabel(CardSubject subject) => subject == CardSubject.Character ? "人物" : "道具";
 
         internal static string SubjectOrderNotice(int day) => day >= SubjectOrderStart
-            ? $"专题收藏客这周日来收普通版 R／SR {SubjectLabel(SubjectOfWeek(day))}卡，最多三张不同卡。" : "";
+            ? $"对了，专题收藏客周日来。他这周想淘几张普通版的 R、SR {SubjectLabel(SubjectOfWeek(day))}卡。" : "";
 
         internal static int SelectionWeight(Profile profile, StoreClientManager manager, int day, int tier)
         {
@@ -185,7 +185,7 @@ namespace ProbablyTradingCards
             else
                 client.willAcceptItem = item => Wants(kind, subject, item);
             string greeting = kind == CollectorKind.Subject ?
-                $"这周我收普通版 R／SR {SubjectLabel(subject)}卡。同款只收一张，最多收三种。" : profile.Greeting;
+                $"我在凑几张{SubjectLabel(subject)}卡。普通版的 R、SR 给我看看。同款一张就够，这趟我挑三种。" : profile.Greeting;
             client.mainDialogue.SetText(profile.Name, greeting);
             client.AddBasicDialog();
             client.CompleteClientCreation();
