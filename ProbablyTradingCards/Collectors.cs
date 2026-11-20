@@ -47,7 +47,7 @@ namespace ProbablyTradingCards
         {
             new Profile(CollectorKind.Night, "collector", "夜班收藏客", "刚下班，想淘几张散卡。C、R、SR 都行。",
                 350, 450, 3, 1, CardCustomerRules.CollectorCooldown, false, new[] { 60, 45, 30 }),
-            new Profile(CollectorKind.Packs, "pack_fan", "拆包爱好者", "今天手痒，想拆几包。哪辑都行，我先瞧瞧封口。这趟最多带三包。",
+            new Profile(CollectorKind.Packs, "pack_fan", "拆包爱好者", "今天手痒，想拆几包。哪辑都行，我先瞧瞧封口。",
                 600, 900, 4, 6, 3, false, new[] { 25, 30, 30 }),
             new Profile(CollectorKind.Subject, "subject_collector", "专题收藏客", "",
                 1200, 1600, 5, SubjectOrderStart, 0, false, new[] { 0, 0, 0 }),
@@ -141,15 +141,8 @@ namespace ProbablyTradingCards
             client.SetBudget(CardCustomerRules.CollectorBaseBudget(day, bonus, profile.MinBudget, profile.PerDay));
             if (kind == CollectorKind.Packs)
             {
-                int remaining = 3;
-                int? Quote(GameItem item) => remaining > 0 ? SealedPackQuote(item) : null;
-                client.willAcceptItem = item => Quote(item).HasValue;
-                FixedCardOffers.Configure(client, Quote);
-                CardSaleBatchGuard.Configure(client, items => items.Count <= remaining, "这趟最多收三包，请减少交易台上的卡包。");
-                client.onItemBought = (_, __) =>
-                {
-                    if (--remaining == 0) client.SetBudget(0);
-                };
+                client.willAcceptItem = item => SealedPackQuote(item).HasValue;
+                FixedCardOffers.Configure(client, SealedPackQuote);
             }
             else if (kind == CollectorKind.Subject)
             {

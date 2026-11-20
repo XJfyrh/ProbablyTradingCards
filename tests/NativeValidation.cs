@@ -753,15 +753,16 @@ namespace ProbablyTradingCards
                     "first Saturday schedules the pack buyer exactly once for an owned Night Stories pack");
                 var packBuyer = manager.clientStack.Single();
                 store.currentClientInstance = StoreClientInstance.CreateClientInstance(packBuyer);
-                check(!CardSaleBatchGuard.IsAllowed(packBuyer, new[] { clean, wrinkled, doublePressed, glued }) &&
-                    CardSaleBatchGuard.IsAllowed(packBuyer, new[] { clean, wrinkled, doublePressed }),
-                    "pack buyer accepts a batch of three and requires adjusting a batch of four");
+                check(CardSaleBatchGuard.IsAllowed(packBuyer, new[] { clean, wrinkled, doublePressed, glued }),
+                    "pack buyer allows a batch larger than three");
                 foreach (var (packet, expectedPrice) in new[] { (clean, 46), (wrinkled, 40), (doublePressed, 30), (glued, 30) })
                     check(packBuyer.IsClientBuyingThisItem(packet) && Collectors.SealedPackQuote(packet) == expectedPrice &&
                         packet.GetNegociatedValue() == expectedPrice, "pack buyer quotes from the visible seal tier");
-                foreach (var packet in new[] { clean, wrinkled, doublePressed })
-                    packBuyer.OnItemBought(packet, (int)packet.GetNegociatedValue());
-                check(!packBuyer.IsClientBuyingThisItem(glued), "pack buyer stops at three purchases per visit");
+                GraphUtils.TryAcceptAll(back, glued);
+                packBuyer.OverrideBudget(30);
+                check(store.CanSellThisItem(glued), "exact remaining budget covers a pack");
+                packBuyer.OverrideBudget(29);
+                check(!store.CanSellThisItem(glued), "pack buyer requires the full quote to fit the remaining budget");
                 store.currentClientInstance = null;
                 ClearCounter();
                 manager.clientStack.Clear();
