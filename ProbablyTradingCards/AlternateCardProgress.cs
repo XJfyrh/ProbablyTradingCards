@@ -39,8 +39,8 @@ namespace ProbablyTradingCards
             if (data == null) return result;
             if (data.eleanorConclusionDay >= 0)
             {
-                if (data.eleanorDriveChoice == 1) result.Add(StationLegends.EleanorScav);
-                if (data.eleanorDriveChoice == 2) result.Add(StationLegends.EleanorRev);
+                int eleanor = EleanorAlternate(data.eleanorDriveChoice);
+                if (eleanor >= 0) result.Add(eleanor);
             }
             int joeDay = Seen(StationLegends.Joe);
             if (StationLegends.InWindow(day, joeDay, 14)) result.Add(StationLegends.Joe);
@@ -59,7 +59,10 @@ namespace ProbablyTradingCards
             return result;
         }
 
-        private static int SerpicoAlternate(int choice) => choice == 1 ? StationLegends.SerpicoRev :
+        internal static int EleanorAlternate(int choice) => choice == 1 ? StationLegends.EleanorScav :
+            choice == 2 ? StationLegends.EleanorRev : -1;
+
+        internal static int SerpicoAlternate(int choice) => choice == 1 ? StationLegends.SerpicoRev :
             choice == 3 ? StationLegends.SerpicoSecurity : choice == 2 ? StationLegends.SerpicoDepart : -1;
 
         private static Dialogue LastLine(Dialogue line)

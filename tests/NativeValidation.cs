@@ -16,6 +16,46 @@ namespace ProbablyTradingCards
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "拆包交互样品", CreateInteractionSamples);
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "卡面品相样品", CreateCardArtSamples);
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "星港收藏簿样品", CreateLegendsSamples);
+            ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "异次元卡商试玩存档", SeedBranchSellerPlaytest);
+        }
+
+        private static void SeedBranchSellerPlaytest()
+        {
+            var store = PlayerStore.Instance;
+            if (store.saveSlotId != 27 || store.storeState != PlayerStore.StoreState.MORNING)
+            {
+                ModEntry.Log.Warning("异次元卡商样品只能写入 27 号测试副本，且须在开店前使用。");
+                return;
+            }
+
+            // The fixture saves only prerequisites. The formal build supplies the visit and trades.
+            var album = DirectoryMaster.Item(NativeItems.LegendsAlbumId);
+            var ids = CardGame.Series.ForPack(PackKind.Slim).Cards.Values.Where(card => !card.IsAlternate)
+                .Select(card => card.Id).Concat(new[] { StationLegends.EleanorScav, StationLegends.SerpicoRev });
+            foreach (int id in ids)
+            {
+                var card = DirectoryMaster.Item(NativeItems.CardId(id, 2));
+                if (GraphUtils.TryAcceptAllOrDestroy(album, card, "branch seller playtest album")) continue;
+                album.Destroy();
+                ModEntry.Log.Error("异次元卡商样品无法放入收藏簿。");
+                return;
+            }
+            if (!NativeItems.PlaceOwned(album))
+            {
+                album.Destroy();
+                ModEntry.Log.Error("异次元卡商样品需要库存空间放置收藏簿。");
+                return;
+            }
+
+            var story = PlayerStore.GetStoreClientData();
+            store.IsPropertyPaid = true;
+            story.eleanorDriveChoice = 1;
+            story.eleanorConclusionDay = StoreStation.GetDayCounter();
+            story.serpicoDocumentChoice = 1;
+            store.ModCash(Math.Max(0, 40_000 - store.GetCash()), playSound: false);
+            ModHelper.RemoveModData(ModEntry.ModId, BranchAlternateSeller.LastVisitWeekKey);
+            store.SaveGame();
+            ModEntry.Log.Log("BRANCH SELLER FIXTURE SAVED slot 27, missing " + string.Join(",", BranchAlternateSeller.MissingCards()));
         }
 
         private static void CreateLegendsSamples()
@@ -241,6 +281,7 @@ namespace ProbablyTradingCards
                 check(!buyer.IsClientBuyingThisItem(album), "buyer leaves album contents alone");
                 CheckCustomers(check, temporary, windows);
                 CheckAppointments(check, temporary, windows);
+                CheckBranchAlternateSeller(check, temporary, windows);
                 CheckLegends(check, temporary);
                 foreach (var series in CardGame.Series.All.Where(series => series.IsExpansion))
                     CheckExpansion(check, series, temporary, windows, viewingInventory);
@@ -618,6 +659,191 @@ namespace ProbablyTradingCards
             var choice = page.choices[option].Item2;
             choice.nextDialogue.ExecuteEndAction();
             return choice.plainText;
+        }
+
+        private static void CheckBranchAlternateSeller(Action<bool, string> check, List<GameItem> temporary,
+            List<PixelWindow> windows)
+        {
+            var entry = EmporiumEntry.Instance;
+            var store = PlayerStore.Instance;
+            var originalInventory = entry.invElement;
+            var originalAfterhour = entry.afterhourWindow;
+            string[] otherInventoryNames = {
+                nameof(EmporiumEntry.frontInvinvElement), nameof(EmporiumEntry.backInvinvElement),
+                nameof(EmporiumEntry.backInvinvElementCounter), nameof(EmporiumEntry.docInvElement),
+                nameof(EmporiumEntry.showcaseElement), nameof(EmporiumEntry.trashInvElement),
+                nameof(EmporiumEntry.vendingFountainElement), nameof(EmporiumEntry.vendingMachineElement),
+                nameof(EmporiumEntry.hiddenElement)
+            };
+            var otherInventories = otherInventoryNames.Select(name => AccessTools.Property(typeof(EmporiumEntry), name))
+                .Select(property => (property, original: property.GetValue(entry))).ToArray();
+            var originalStory = store.storeClientData;
+            var originalManager = store.storeClientManager;
+            var originalClient = store.currentClientInstance;
+            var originalState = store.storeState;
+            var originalNegotiated = store.currentNegociatedItem;
+            var originalModData = store.modData;
+            var originalStats = store.runStats;
+            var originalReputations = store.storeReputations;
+            int originalDay = StoreStation.GetDayCounter();
+            int originalCash = store.GetCash();
+            int originalFavor = store.wildFavor;
+            bool originalPropertyPaid = store.IsPropertyPaid;
+            var inventory = new GameGridInventory(10, 4);
+            var front = new GameGridInventory(8, 3);
+            var back = new GameGridInventory(6, 3);
+            var window = new PixelWindow();
+            var layout = new GridPixelElement(3, 1);
+            layout.Attach(inventory, 0, 0);
+            layout.Attach(front, 1, 0);
+            layout.Attach(back, 2, 0);
+            window.Attach(layout);
+            windows.Add(window);
+
+            GameItem Put(string id, GraphNodeStorage destination, bool owned = true)
+            {
+                var item = DirectoryMaster.Item(id, owned);
+                temporary.Add(item);
+                check(GraphUtils.TryAcceptAll(destination, item) == 0 && item.parentInventory != null,
+                    "place branch seller fixture item " + id);
+                return item;
+            }
+
+            GameItem PutCard(int id, GraphNodeStorage destination, bool owned = true) =>
+                Put(NativeItems.CardId(id, 2), destination, owned);
+
+            bool Missing(params int[] expected) => BranchAlternateSeller.MissingCards().ToHashSet().SetEquals(expected);
+
+            try
+            {
+                entry.invElement = inventory;
+                entry.afterhourWindow = null;
+                foreach (var (property, _) in otherInventories) property.SetValue(entry, null);
+                otherInventories[0].property.SetValue(entry, front);
+                otherInventories[1].property.SetValue(entry, back);
+                store.storeClientData = new StoreClientData { eleanorDriveChoice = 1, eleanorConclusionDay = 22 };
+                store.storeClientManager = new StoreClientManager();
+                store.currentClientInstance = null;
+                store.currentNegociatedItem = null;
+                store.modData = new Dictionary<string, string>();
+                store.runStats = new RunStats();
+                store.storeReputations = new List<StoreReputation>();
+                store.storeState = PlayerStore.StoreState.OPEN;
+                store.IsPropertyPaid = false;
+                StoreStation.Instance.dayCounter = 22;
+
+                var story = store.storeClientData;
+                var album = Put(NativeItems.LegendsAlbumId, inventory);
+                var basics = CardGame.Series.ForPack(PackKind.Slim).Cards.Values.Where(card => !card.IsAlternate)
+                    .Select(card => card.Id).ToArray();
+                foreach (int id in basics.Take(basics.Length - 1)) PutCard(id, album);
+                var finalBase = PutCard(basics.Last(), back, owned: false);
+                var eleanorScav = PutCard(StationLegends.EleanorScav, album);
+                check(Missing(), "unpaid shop cannot meet the branch seller requirements");
+                store.IsPropertyPaid = true;
+                check(Missing(), "one missing base card cannot be supplied by unowned counter stock");
+                GeneralHelper.SetItemOwned(finalBase);
+                check(Missing(StationLegends.EleanorRev), "owned album plus storage complete the base set for the Eleanor family");
+                GeneralHelper.SetItemOwned(album, false);
+                check(Missing(), "owned cards nested in an unowned album do not qualify");
+                GeneralHelper.SetItemOwned(album);
+                AlternateCardProgress.Discover(StationLegends.EleanorScav);
+                GeneralHelper.SetItemOwned(eleanorScav, false);
+                check(Missing(), "an earlier discovery does not replace the physically owned branch card");
+
+                story.eleanorDriveChoice = 2;
+                var eleanorRev = PutCard(StationLegends.EleanorRev, album);
+                check(Missing(StationLegends.EleanorScav), "Eleanor's reverse branch offers her other route without Serpico");
+                eleanorRev.Destroy();
+                story.eleanorDriveChoice = 0;
+                int[] serpicoBranches = { StationLegends.SerpicoRev, StationLegends.SerpicoDepart, StationLegends.SerpicoSecurity };
+                for (int index = 0; index < serpicoBranches.Length; index++)
+                {
+                    story.serpicoDocumentChoice = index + 1;
+                    int selected = serpicoBranches[index];
+                    var anchor = PutCard(selected, album);
+                    check(Missing(serpicoBranches.Where(id => id != selected).ToArray()),
+                        "each Serpico route offers the other two without Eleanor");
+                    anchor.Destroy();
+                }
+
+                story.eleanorDriveChoice = 1;
+                story.serpicoDocumentChoice = 1;
+                GeneralHelper.SetItemOwned(eleanorScav);
+                PutCard(StationLegends.SerpicoRev, album);
+                check(Missing(StationLegends.EleanorRev, StationLegends.SerpicoDepart, StationLegends.SerpicoSecurity),
+                    "eligible families combine distinct missing cards");
+                check(StoreClientListDict.storeClientDict.TryGetValue(BranchAlternateSeller.SellerId, out var create) &&
+                    create().sourceModId == ModEntry.ModId, "branch seller can be loaded by its persistent client ID");
+                var manager = store.storeClientManager;
+                BranchAlternateSeller.Queue(manager);
+                BranchAlternateSeller.Queue(manager);
+                check(manager.clientStack.Count == 1 && manager.clientStack[0].identifier == BranchAlternateSeller.SellerId &&
+                    ModHelper.GetModDataInt(ModEntry.ModId, BranchAlternateSeller.LastVisitWeekKey, -1) == CardCustomerRules.SupplyWeek(22),
+                    "first eligible opening queues one branch seller and persists the visit week");
+
+                var seller = manager.clientStack.Single();
+                store.currentClientInstance = StoreClientInstance.CreateClientInstance(seller);
+                seller.mainDialogue.ExecuteEndAction();
+                temporary.AddRange(front.childItems);
+                check(front.childItems.Count == 3 && front.childItems.All(item => !GeneralHelper.IsItemOwned(item) &&
+                    TradingCardsApi.TryGetCard(item, out _, out int wear) && wear == 2),
+                    "seller presents only unowned mint copies of the eligible alternatives");
+
+                foreach (var (id, price) in new[] { (StationLegends.EleanorRev, 9000), (StationLegends.SerpicoDepart, 9600) })
+                {
+                    var offer = front.childItems.Single(item => item.identifier == NativeItems.CardId(id, 2));
+                    check(!AlternateCardProgress.IsDiscovered(id) && offer.GetNegociatedValue() == price,
+                        "greeting does not discover or change the fixed quote of a card");
+                    check(GraphUtils.TryAcceptAll(back, offer) == 0 && offer.parentInventory == back,
+                        "the actual seller copy moves to the native negotiation table");
+                    store.currentNegociatedItem = offer;
+                    store.playerCash = price - 1;
+                    check(!store.CanBuyItemFromTable(), "insufficient cash blocks the native purchase");
+                    store.playerCash++;
+                    check(store.CanBuyItemFromTable(), "the exact quoted cash is enough to purchase");
+                    store.BuyItemFromTable();
+                    check(store.GetCash() == 0 && GeneralHelper.IsItemEffectivelyOwned(offer) && AlternateCardProgress.IsDiscovered(id),
+                        "the native transaction charges the exact amount and discovers the owned card");
+                    check(offer.GetNegociatedValue() != price && !BranchAlternateSeller.MissingCards().Contains(id),
+                        "buying removes the seller quote and the variant leaves the eligible stock");
+                }
+
+                store.currentClientInstance = null;
+                foreach (GameItem item in front.childItems.ToList()) item.Destroy();
+                // Rebuild the queue to prove that the persisted week is enough after a reload.
+                manager = store.storeClientManager = new StoreClientManager();
+                StoreStation.Instance.dayCounter = 28;
+                BranchAlternateSeller.Queue(manager);
+                check(manager.clientStack.Count == 0, "an unbought card cannot schedule a second visit in the same week");
+                StoreStation.Instance.dayCounter = 29;
+                BranchAlternateSeller.Queue(manager);
+                check(manager.clientStack.Count == 1 && Missing(StationLegends.SerpicoSecurity),
+                    "next calendar week can offer the only still missing variant");
+                manager.clientStack.Clear();
+                PutCard(StationLegends.SerpicoSecurity, album);
+                StoreStation.Instance.dayCounter = 36;
+                BranchAlternateSeller.Queue(manager);
+                check(Missing() && manager.clientStack.Count == 0, "completed families stop scheduling the branch seller");
+            }
+            finally
+            {
+                entry.invElement = originalInventory;
+                entry.afterhourWindow = originalAfterhour;
+                foreach (var (property, original) in otherInventories) property.SetValue(entry, original);
+                store.storeClientData = originalStory;
+                store.storeClientManager = originalManager;
+                store.currentClientInstance = originalClient;
+                store.storeState = originalState;
+                store.currentNegociatedItem = originalNegotiated;
+                store.modData = originalModData;
+                store.runStats = originalStats;
+                store.storeReputations = originalReputations;
+                StoreStation.Instance.dayCounter = originalDay;
+                store.playerCash = originalCash;
+                store.wildFavor = originalFavor;
+                store.IsPropertyPaid = originalPropertyPaid;
+            }
         }
 
         private static void CheckCustomers(Action<bool, string> check, List<GameItem> temporary, List<PixelWindow> windows)

@@ -13,8 +13,10 @@ namespace ProbablyTradingCards
             ModHook.OnModItemDirectoryInit += NativeItems.Register;
             CardCustomers.Register();
             RareCardAppointments.Register();
+            BranchAlternateSeller.Register();
             ModHook.OnGenerateCustomerEarly += CardCustomers.QueueScheduledCustomers;
             ModHook.OnGenerateCustomerEarly += RareCardAppointments.Queue;
+            ModHook.OnGenerateCustomerEarly += BranchAlternateSeller.Queue;
 #if NATIVE_VALIDATION
             NativeValidation.Register();
             NativeAgentBridge.Enable();
@@ -27,6 +29,8 @@ namespace ProbablyTradingCards
             ModHook.OnModItemDirectoryInit -= NativeItems.Register;
             ModHook.OnGenerateCustomerEarly -= CardCustomers.QueueScheduledCustomers;
             ModHook.OnGenerateCustomerEarly -= RareCardAppointments.Queue;
+            ModHook.OnGenerateCustomerEarly -= BranchAlternateSeller.Queue;
+            BranchAlternateSeller.Unregister();
             RareCardAppointments.Unregister();
             CardCustomers.Unregister();
 #if NATIVE_VALIDATION
