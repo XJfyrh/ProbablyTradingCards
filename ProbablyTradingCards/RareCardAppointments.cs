@@ -141,19 +141,9 @@ namespace ProbablyTradingCards
             };
 
             string greeting = booking != null && CardGame.Catalogue.TryGetValue(booking.CardId, out var card)
-                ? $"我来收预约的「{card.Name}」，说好的 {booking.Price} 信用点。愿意卖的话，把那张卡放上交易台。"
+                ? $"我来收预约的「{card.Name}」，说好的 {booking.Price} 信用点。放上交易台就能成交，改主意的话直接送客。"
                 : "这趟的预约已经结束了。";
             client.mainDialogue.SetText(BuyerName, greeting);
-            if (booking != null)
-            {
-                client.mainDialogue.AddChoice(DirectoryMaster.Item("yes"), "好，我把卡放上来。");
-                var decline = new Dialogue().SetText(BuyerName, "好，改天想卖了再联系我。").SetEndAction(() =>
-                {
-                    Cancel(booking);
-                    PlayerStore.Instance.DismissCurrentClient(callNextWhenPossible: false);
-                });
-                client.mainDialogue.AddChoice(DirectoryMaster.Item("no"), "这次不卖了。", "", decline);
-            }
             client.AddBasicDialog();
             client.CompleteClientCreation();
             ModHelper.SetClientSource(client, ModEntry.ModId);

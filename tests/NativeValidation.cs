@@ -579,6 +579,15 @@ namespace ProbablyTradingCards
                 retried.OnItemBought(alternate, price);
                 check(RareCardAppointments.ReadPending() == null && !store.CanSellThisItem(alternate),
                     "successful purchase clears booking and prevents a repeat sale");
+
+                store.storeClientManager.clientStack.Clear();
+                check(RareCardAppointments.TryBook(ur), "a settled appointment leaves room for another");
+                StoreStation.Instance.dayCounter = 13;
+                RareCardAppointments.Queue(store.storeClientManager);
+                var declined = store.storeClientManager.clientStack.Single();
+                check(declined.mainDialogue.choices.Count == 0 && !declined.tryInterceptDismiss() &&
+                    RareCardAppointments.ReadPending() == null && GeneralHelper.IsItemEffectivelyOwned(ur),
+                    "ordinary dismissal safely cancels the appointment without selling the card");
             }
             finally
             {
