@@ -1,0 +1,42 @@
+[
+  {
+    "id": "mentor",
+    "name": "导师",
+    "rarity": "UR",
+    "reference": false,
+    "scene": "从导师的兜帽和肩后望向柜台，开店合同落在卷帘门透进来的光里，玩家的笔尖停在签名线上方。",
+    "image": "cards/mentor-v2.png"
+  },
+  {
+    "id": "joe",
+    "name": "Joe Wild",
+    "rarity": "UR",
+    "reference": true,
+    "scene": "俯身递出原版名片，同时接听通讯，沿用已确认的第三版样张。",
+    "image": "cards/joe.png"
+  },
+  {
+    "id": "deed",
+    "name": "房契",
+    "rarity": "UR",
+    "reference": false,
+    "scene": "房契与钥匙占据强透视前景，晨光穿过卷帘门，整间属于玩家的店铺在后方展开。",
+    "image": "cards/deed.png"
+  },
+  {
+    "id": "neural-core",
+    "name": "神经核心模组（无限制）",
+    "rarity": "UR",
+    "reference": false,
+    "scene": "从打开的机器插槽仰看核心模组，电路板与接口逼近观者，蓝绿冷光和红色警示灯表现不稳定的 AI。",
+    "image": "cards/neural-core.png"
+  },
+  {
+    "id": "mind",
+    "name": "心智重编程器",
+    "rarity": "UR",
+    "reference": false,
+    "scene": "原版头戴装置在操作椅前展开，弧形金属圈与接口形成近景，超科技元件和重置指示表现它的用途。",
+    "image": "cards/mind.png"
+  }
+]

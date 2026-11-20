@@ -1,0 +1,69 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <TradingCardsDll Condition="'$(TradingCardsDll)' == '' and Exists('../../ProbablyTradingCards/dist/ProbablyTradingCards/ProbablyTradingCards.dll')">../../ProbablyTradingCards/dist/ProbablyTradingCards/ProbablyTradingCards.dll</TradingCardsDll>
+    <TradingCardsDll Condition="'$(TradingCardsDll)' == ''">$(GameDir)/Mods/ProbablyTradingCards/ProbablyTradingCards.dll</TradingCardsDll>
+    <TradingCardsTools Condition="'$(TradingCardsTools)' == '' and Exists('tools/export_series.py')">tools</TradingCardsTools>
+    <TradingCardsTools Condition="'$(TradingCardsTools)' == ''">../../scripts</TradingCardsTools>
+    <PythonExe Condition="'$(PythonExe)' == '' and Exists('.venv/Scripts/python.exe')">$(MSBuildProjectDirectory)/.venv/Scripts/python.exe</PythonExe>
+    <PythonExe Condition="'$(PythonExe)' == '' and Exists('../../.venv/Scripts/python.exe')">$(MSBuildProjectDirectory)/../../.venv/Scripts/python.exe</PythonExe>
+    <PythonExe Condition="'$(PythonExe)' == ''">python</PythonExe>
+    <_GameDir>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(GameDir)'))</_GameDir>
+    <_CoreDll>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(TradingCardsDll)'))</_CoreDll>
+    <_CorePackage>$([System.IO.Path]::GetDirectoryName('$(_CoreDll)'))</_CorePackage>
+    <_Tools>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(TradingCardsTools)'))</_Tools>
+    <_Package>$(MSBuildProjectDirectory)/dist/$(AssemblyName)</_Package>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="ModEntry.cs" />
+    <EmbeddedResource Include="Series\**\series.json">
+      <LogicalName>card-series/%(RecursiveDir)series.json</LogicalName>
+    </EmbeddedResource>
+    <Reference Include="Assembly-CSharp" HintPath="$(_GameDir)/Probably Stolen_Data/Managed/Assembly-CSharp.dll" Private="false" />
+    <Reference Include="ProbablyTradingCards" HintPath="$(_CoreDll)" Private="false" />
+  </ItemGroup>
+  <Target Name="ValidateSeries" BeforeTargets="CoreCompile">
+    <PropertyGroup>
+      <_SeriesCheckArtifacts>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)', 'series-check'))</_SeriesCheckArtifacts>
+      <_UpdateIdentitiesArg Condition="'$(UpdateSeriesIdentities)' == 'true'">--write-identities</_UpdateIdentitiesArg>
+    </PropertyGroup>
+    <Error Condition="!Exists('$(_CoreDll)')" Text="找不到前置模组的发布包，请设置 TradingCardsDll 指向 ProbablyTradingCards.dll。" />
+    <XmlPeek XmlInputPath="manifest.xml" Query="/Manifest/Assemblies/Assembly/text()">
+      <Output TaskParameter="Result" ItemName="_DeclaredAssembly" />
+    </XmlPeek>
+    <Error Condition="'@(_DeclaredAssembly)' != '$(TargetFileName)'" Text="manifest.xml 的 Assembly 应填写本项目生成的 $(TargetFileName)。" />
+    <Exec UseUtf8Encoding="Always" StdOutEncoding="utf-8" StdErrEncoding="utf-8" Command="dotnet run --project &quot;$(_Tools)/SeriesCheck/SeriesCheck.csproj&quot; -c Release --artifacts-path &quot;$(_SeriesCheckArtifacts)&quot; &quot;-p:TradingCardsDll=$(_CoreDll)&quot; &quot;-p:GameDir=$(_GameDir)&quot; -- $(_UpdateIdentitiesArg) &quot;$(MSBuildProjectDirectory)&quot;" />
+  </Target>
+  <Target Name="PackageMod" AfterTargets="Build">
+    <PropertyGroup>
+      <_Stage>$(IntermediateOutputPath)card-art</_Stage>
+    </PropertyGroup>
+    <RemoveDir Directories="$(_Stage)" />
+    <Exec UseUtf8Encoding="Always" StdOutEncoding="utf-8" StdErrEncoding="utf-8" Command="&quot;$(PythonExe)&quot; -X utf8 &quot;$(_Tools)/export_series.py&quot; --project &quot;$(MSBuildProjectDirectory)&quot; --base-package &quot;$(_CorePackage)&quot; --output &quot;$(_Stage)&quot;" />
+    <ItemGroup>
+      <_Texture Include="$(_Stage)/**/*.png" />
+      <_TexturePath Include="@(_Texture->'$(_Package)/Textures/%(RecursiveDir)%(Filename)%(Extension)')" />
+      <_StaleTexture Include="$(_Package)/Textures/Paper/card_set_*.png;$(_Package)/Textures/Items/card_set_*.png;$(_Package)/Textures/Items/set_*_pack.png;$(_Package)/Textures/Items/set_*_album.png" Exclude="@(_TexturePath)" />
+    </ItemGroup>
+    <Copy SourceFiles="$(TargetPath);manifest.xml" DestinationFolder="$(_Package)" />
+    <Copy SourceFiles="@(_Texture)" DestinationFiles="@(_TexturePath)" />
+    <Delete Files="@(_StaleTexture)" />
+  </Target>
+
+  <Target Name="ExportTemplate">
+    <Error Condition="'$(TemplateDir)' == '' or Exists('$(TemplateDir)')" Text="请用 -p:TemplateDir 指定一个尚未创建的作者项目目录。" />
+    <ItemGroup>
+      <_Source Include="Series/**/*" />
+      <_Tool Include="$(_Tools)/export_series.py;$(_Tools)/card_textures.py" />
+      <_Check Include="$(_Tools)/SeriesCheck/SeriesCheck.csproj;$(_Tools)/SeriesCheck/Program.cs" />
+    </ItemGroup>
+    <Copy SourceFiles="$(MSBuildProjectFullPath);manifest.xml;ModEntry.cs;README.md;.gitignore" DestinationFolder="$(TemplateDir)" />
+    <Copy SourceFiles="$(DirectoryBuildPropsPath)" DestinationFolder="$(TemplateDir)" Condition="Exists('$(DirectoryBuildPropsPath)')" />
+    <Copy SourceFiles="@(_Source)" DestinationFiles="@(_Source->'$(TemplateDir)/Series/%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Copy SourceFiles="@(_Tool)" DestinationFolder="$(TemplateDir)/tools" />
+    <Copy SourceFiles="@(_Check)" DestinationFolder="$(TemplateDir)/tools/SeriesCheck" />
+    <Message Importance="High" Text="已导出独立作者项目：$(TemplateDir)" />
+  </Target>
+</Project>

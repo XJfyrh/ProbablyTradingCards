@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ManagedDir>$(GameDir)/Probably Stolen_Data/Managed</ManagedDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="../../Examples/DockLetters/Series/dock_demo/series.json" LogicalName="card-series/dock_demo/series.json" />
+    <EmbeddedResource Include="invalid-series.json" LogicalName="card-series/invalid/series.json" />
+    <Reference Include="ProbablyTradingCards" HintPath="../../ProbablyTradingCards/dist/ProbablyTradingCards/ProbablyTradingCards.dll" />
+    <Reference Include="DockLetters" HintPath="../../Examples/DockLetters/dist/DockLetters/DockLetters.dll" />
+    <Reference Include="CollectionBounty" HintPath="../../Examples/CollectionBounty/dist/CollectionBounty/CollectionBounty.dll" />
+    <Reference Include="Assembly-CSharp" HintPath="$(ManagedDir)/Assembly-CSharp.dll" />
+    <Reference Include="UnityEngine.CoreModule" HintPath="$(ManagedDir)/UnityEngine.CoreModule.dll" />
+    <Reference Include="Newtonsoft.Json" HintPath="$(ManagedDir)/Newtonsoft.Json.dll" />
+  </ItemGroup>
+</Project>

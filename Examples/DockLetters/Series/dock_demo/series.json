@@ -1,0 +1,27 @@
+{
+  "key": "dock_demo",
+  "name": "码头来信",
+  "packValue": 50,
+  "releaseDay": 2,
+  "slots": [
+    { "C": 1 },
+    { "C": 3, "R": 1 }
+  ],
+  "cards": [
+    {
+      "art": "courier",
+      "name": "末班信差",
+      "subject": "Character",
+      "rarity": "C",
+      "value": 6,
+      "flavor": "开船的铃一响，他就把信袋扔上跳板。"
+    },
+    {
+      "art": "ticket",
+      "name": "返程船票",
+      "rarity": "R",
+      "value": 20,
+      "flavor": "票根上还留着家里寄来的地址。"
+    }
+  ]
+}

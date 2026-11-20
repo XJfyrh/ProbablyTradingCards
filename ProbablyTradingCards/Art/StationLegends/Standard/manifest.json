@@ -1,0 +1,191 @@
+[
+  {
+    "id": "food-stamp",
+    "name": "食品券",
+    "rarity": "C",
+    "image": "cards/food-stamp.png",
+    "reference": false
+  },
+  {
+    "id": "scratcher",
+    "name": "刮刮乐彩票",
+    "rarity": "C",
+    "image": "cards/scratcher.png",
+    "reference": false
+  },
+  {
+    "id": "mentor-contract",
+    "name": "导师的合同",
+    "rarity": "C",
+    "image": "cards/mentor-contract.png",
+    "reference": false
+  },
+  {
+    "id": "joe-card",
+    "name": "Joe Wild 的名片",
+    "rarity": "C",
+    "image": "cards/joe-card.png",
+    "reference": false
+  },
+  {
+    "id": "foodie",
+    "name": "美食游客",
+    "rarity": "C",
+    "image": "cards/foodie.png",
+    "reference": true
+  },
+  {
+    "id": "case",
+    "name": "开箱爱好者",
+    "rarity": "C",
+    "image": "cards/case.png",
+    "reference": false
+  },
+  {
+    "id": "business-permit",
+    "name": "营业许可证",
+    "rarity": "C",
+    "image": "cards/business-permit.png",
+    "reference": false
+  },
+  {
+    "id": "juan",
+    "name": "Juan",
+    "rarity": "R",
+    "image": "cards/juan.png",
+    "reference": false
+  },
+  {
+    "id": "landlord",
+    "name": "房东",
+    "rarity": "R",
+    "image": "cards/landlord.png",
+    "reference": false
+  },
+  {
+    "id": "john",
+    "name": "John Smith",
+    "rarity": "R",
+    "image": "cards/john.png",
+    "reference": false
+  },
+  {
+    "id": "arthur",
+    "name": "Arthur Lafleur",
+    "rarity": "R",
+    "image": "cards/arthur.png",
+    "reference": false
+  },
+  {
+    "id": "appraiser",
+    "name": "鉴定委员会成员",
+    "rarity": "R",
+    "image": "cards/appraiser.png",
+    "reference": false
+  },
+  {
+    "id": "leroy",
+    "name": "Leroy",
+    "rarity": "R",
+    "image": "cards/leroy.png",
+    "reference": false
+  },
+  {
+    "id": "nuclear-waste",
+    "name": "核废料",
+    "rarity": "R",
+    "image": "cards/nuclear-waste.png",
+    "reference": true
+  },
+  {
+    "id": "scav-token",
+    "name": "拾荒者信物",
+    "rarity": "R",
+    "image": "cards/scav-token.png",
+    "reference": false
+  },
+  {
+    "id": "james",
+    "name": "James Bailey",
+    "rarity": "R",
+    "image": "cards/james.png",
+    "reference": false
+  },
+  {
+    "id": "loan",
+    "name": "高利贷商",
+    "rarity": "R",
+    "image": "cards/loan-v2.png",
+    "reference": false
+  },
+  {
+    "id": "blackmailer",
+    "name": "勒索者",
+    "rarity": "R",
+    "image": "cards/blackmailer-v2.png",
+    "reference": false
+  },
+  {
+    "id": "liquid-luck",
+    "name": "液体好运",
+    "rarity": "R",
+    "image": "cards/liquid-luck.png",
+    "reference": false
+  },
+  {
+    "id": "blue-blood",
+    "name": "一袋“蓝血”",
+    "rarity": "R",
+    "image": "cards/blue-blood.png",
+    "reference": false
+  },
+  {
+    "id": "cartel",
+    "name": "卡特尔联络人",
+    "rarity": "SR",
+    "image": "cards/cartel.png",
+    "reference": false
+  },
+  {
+    "id": "eleanor-perfume",
+    "name": "Eleanor 的香水",
+    "rarity": "SR",
+    "image": "cards/eleanor-perfume.png",
+    "reference": false
+  },
+  {
+    "id": "command-card",
+    "name": "指挥钥匙卡",
+    "rarity": "SR",
+    "image": "cards/command-card.png",
+    "reference": false
+  },
+  {
+    "id": "odin",
+    "name": "Odin Haraldsson",
+    "rarity": "SR",
+    "image": "cards/odin.png",
+    "reference": true
+  },
+  {
+    "id": "transmitter",
+    "name": "共和国发射器",
+    "rarity": "SR",
+    "image": "cards/transmitter-v2.png",
+    "reference": false
+  },
+  {
+    "id": "butcher",
+    "name": "屠夫",
+    "rarity": "SR",
+    "image": "cards/butcher.png",
+    "reference": false
+  },
+  {
+    "id": "synaprest",
+    "name": "赛纳普斯注射器",
+    "rarity": "SR",
+    "image": "cards/synaprest.png",
+    "reference": false
+  }
+]

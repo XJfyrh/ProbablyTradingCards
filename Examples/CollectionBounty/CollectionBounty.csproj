@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <ManagedDir>$(GameDir)\Probably Stolen_Data\Managed</ManagedDir>
+    <TradingCardsDll Condition="'$(TradingCardsDll)' == '' and Exists('../../ProbablyTradingCards/dist/ProbablyTradingCards/ProbablyTradingCards.dll')">$(MSBuildProjectDirectory)/../../ProbablyTradingCards/dist/ProbablyTradingCards/ProbablyTradingCards.dll</TradingCardsDll>
+    <TradingCardsDll Condition="'$(TradingCardsDll)' == ''">$(GameDir)/Mods/ProbablyTradingCards/ProbablyTradingCards.dll</TradingCardsDll>
+    <PackageDir Condition="'$(PackageDir)' == ''">$(MSBuildProjectDirectory)/dist/$(AssemblyName)</PackageDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="ProbablyTradingCards"><HintPath>$(TradingCardsDll)</HintPath><Private>false</Private></Reference>
+    <Reference Include="Assembly-CSharp"><HintPath>$(ManagedDir)\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(ManagedDir)\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <Target Name="PackageMod" AfterTargets="Build">
+    <XmlPeek XmlInputPath="manifest.xml" Query="/Manifest/Assemblies/Assembly/text()">
+      <Output TaskParameter="Result" PropertyName="_ManifestDll" />
+    </XmlPeek>
+    <Error Condition="'$(_ManifestDll)' != '$(TargetFileName)'" Text="manifest.xml 中的 Assembly 应为 $(TargetFileName)，当前为 $(_ManifestDll)。" />
+    <Copy SourceFiles="$(TargetPath);manifest.xml;README.md" DestinationFolder="$(PackageDir)" />
+  </Target>
+  <Target Name="ExportTemplate">
+    <Error Condition="'$(TemplateDir)' == '' or Exists('$(TemplateDir)')" Text="请用 -p:TemplateDir 指定一个新目录。" />
+    <Copy SourceFiles="$(MSBuildProjectFullPath);manifest.xml;ModEntry.cs;README.md;.gitignore" DestinationFolder="$(TemplateDir)" />
+    <Copy SourceFiles="$(DirectoryBuildPropsPath)" DestinationFolder="$(TemplateDir)" Condition="Exists('$(DirectoryBuildPropsPath)')" />
+  </Target>
+</Project>

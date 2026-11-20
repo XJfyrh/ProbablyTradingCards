@@ -1,0 +1,15 @@
+<Project>
+  <ItemGroup>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Series\**\series.json">
+      <LogicalName>card-series/%(RecursiveDir)series.json</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+  <Target Name="CheckCardSeriesPaths" BeforeTargets="PrepareForBuild">
+    <ItemGroup>
+      <_MisplacedCardSeries Include="$(MSBuildThisFileDirectory)Series/**/series.json"
+                            Exclude="$(MSBuildThisFileDirectory)Series/*/series.json" />
+    </ItemGroup>
+    <Error Condition="'@(_MisplacedCardSeries)' != ''"
+           Text="卡辑清单必须位于 Series/&lt;key&gt;/series.json。请检查 @(_MisplacedCardSeries, '、')" />
+  </Target>
+</Project>

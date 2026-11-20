@@ -1,0 +1,81 @@
+{
+  "key": "night_stories",
+  "name": "空间站夜话",
+  "packKind": 0,
+  "releaseDay": 1,
+  "packValue": 40,
+  "slots": [{"C": 1}, {"C": 1}, {"SR": 6, "R": 34, "C": 60}],
+  "resealedSlots": [{"C": 1}, {"C": 1}, {"SR": 1, "R": 9, "C": 90}],
+  "cards": [
+    {
+      "id": 0,
+      "name": "巷口跑腿",
+      "subject": "Character",
+      "rarity": "C",
+      "value": 4,
+      "flavor": "信封上写着「会修锅的阿姨收」。他知道投哪个信箱。"
+    },
+    {
+      "id": 1,
+      "name": "废铁拾荒者",
+      "subject": "Character",
+      "rarity": "C",
+      "value": 6,
+      "flavor": "“按斤收也行。先让我把还能转的轴承挑出来。”"
+    },
+    {
+      "id": 2,
+      "name": "夜班修理工",
+      "subject": "Character",
+      "rarity": "C",
+      "value": 8,
+      "flavor": "新板子早就停产了。她掀开旁边那台报废机的盖子。"
+    },
+    {
+      "id": 3,
+      "name": "自动售货机",
+      "rarity": "C",
+      "value": 10,
+      "flavor": "谢谢惠顾。找零系统检修中。"
+    },
+    {
+      "id": 4,
+      "name": "义体快递员",
+      "subject": "Character",
+      "rarity": "R",
+      "value": 40,
+      "flavor": "等舱门放行的时候，他把货箱往铁胳膊上一搁，空出手喝了口水。"
+    },
+    {
+      "id": 5,
+      "name": "黑市中间人",
+      "subject": "Character",
+      "rarity": "R",
+      "value": 60,
+      "flavor": "“地址给你。到了那儿，别说是我给的。”"
+    },
+    {
+      "id": 6,
+      "name": "轨道巡警",
+      "subject": "Character",
+      "rarity": "R",
+      "value": 80,
+      "flavor": "货箱上的三个章都是真的。他问的是第四个。"
+    },
+    {
+      "id": 7,
+      "name": "霓虹女王",
+      "subject": "Character",
+      "rarity": "SR",
+      "value": 240,
+      "flavor": "她还没露面，前排的票已经转手三次了。"
+    },
+    {
+      "id": 8,
+      "name": "空间站之心",
+      "rarity": "SR",
+      "value": 360,
+      "flavor": "请填写全站都方便停电的时间。"
+    }
+  ]
+}

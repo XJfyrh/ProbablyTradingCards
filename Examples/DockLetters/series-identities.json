@@ -1,0 +1,16 @@
+{
+  "ownerId": "dock_letters",
+  "series": [
+    {
+      "key": "dock_demo",
+      "packKind": 1583645956,
+      "packSlots": 2,
+      "packSprite": "pack",
+      "albumSprite": "legends_album",
+      "cards": {
+        "1356309392": "courier",
+        "1900589081": "ticket"
+      }
+    }
+  ]
+}

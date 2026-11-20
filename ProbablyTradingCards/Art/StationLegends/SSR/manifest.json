@@ -1,0 +1,66 @@
+[
+  {
+    "id": "georgio",
+    "name": "Georgio",
+    "rarity": "SSR",
+    "reference": true,
+    "scene": "展示拾荒所得的电子元件，沿用已确认样张。",
+    "image": "cards/georgio.png"
+  },
+  {
+    "id": "lun",
+    "name": "Officer Lun",
+    "rarity": "SSR",
+    "reference": false,
+    "scene": "从柜台高度侧看夜间盘查，手电光扫过掀起的封条，Lun 的红帽与侧脸露在画面右缘。",
+    "image": "cards/lun-v2.png"
+  },
+  {
+    "id": "jackson",
+    "name": "Dr. Jackson",
+    "rarity": "SSR",
+    "reference": false,
+    "scene": "熔炉占据左侧近景，Jackson 单膝跪在右侧，一手扶检修盖，一手搭在膝盖上，抬头看启动灯。",
+    "image": "cards/jackson-v2.png"
+  },
+  {
+    "id": "eleanor",
+    "name": "Eleanor",
+    "rarity": "SSR",
+    "reference": false,
+    "scene": "从典当柜台侧看 Eleanor 刚放下香水的瞬间，瓶子竖在她和另一只尚未接物的手之间。",
+    "image": "cards/eleanor-v2.png"
+  },
+  {
+    "id": "serpico",
+    "name": "Cadet Serpico",
+    "rarity": "SSR",
+    "reference": false,
+    "scene": "年轻警员巡逻中接到通讯呼叫，转身朝通道望去，抬起的手臂穿过内框。",
+    "image": "cards/serpico.png"
+  },
+  {
+    "id": "sawyer",
+    "name": "Sawyer",
+    "rarity": "SSR",
+    "reference": false,
+    "scene": "从回收斗旁侧看清运中的 Sawyer，他一手扶车，一手托起绑绳纸包。",
+    "image": "cards/sawyer-v2.png"
+  },
+  {
+    "id": "li",
+    "name": "Li Bei Wen",
+    "rarity": "SSR",
+    "reference": false,
+    "scene": "粉色旧注射器横放在矮玻璃罩内的托盘上，李北文从右侧罩外俯身观察。",
+    "image": "cards/li-v2.png"
+  },
+  {
+    "id": "lou",
+    "name": "Lou",
+    "rarity": "SSR",
+    "reference": false,
+    "scene": "带着玩具箱回到柜台，近景箱扣与她的笑容形成危险又轻松的反差。",
+    "image": "cards/lou.png"
+  }
+]

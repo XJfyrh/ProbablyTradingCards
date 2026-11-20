@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Manifest>
+  <ID>collection_bounty</ID>
+  <Name>收藏悬赏</Name>
+  <Author>Probably Trading Cards</Author>
+  <ModVersion>1.0.0</ModVersion>
+  <Description>星港人物志编辑每周三来访，直到收齐三张人物卡。各辑都收，卖给他第三张时额外领取 120 信用点。</Description>
+  <GameVersions><Version>1.0.0</Version></GameVersions>
+  <Prerequisites><Mod>probably_trading_cards</Mod></Prerequisites>
+  <Assemblies><Assembly>CollectionBounty.dll</Assembly></Assemblies>
+  <Capabilities />
+</Manifest>

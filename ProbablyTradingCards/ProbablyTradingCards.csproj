@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="Series.resources.props" />
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ManagedDir>$(GameDir)\Probably Stolen_Data\Managed</ManagedDir>
+    <PythonExe Condition="'$(PythonExe)' == '' and Exists('../.venv/Scripts/python.exe')">$(MSBuildProjectDirectory)/../.venv/Scripts/python.exe</PythonExe>
+    <PythonExe Condition="'$(PythonExe)' == ''">python</PythonExe>
+    <_GameDir>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(GameDir)'))</_GameDir>
+    <PackageDir Condition="'$(PackageDir)' == '' and '$(NativeValidation)' == 'true'">$(MSBuildProjectDirectory)\dist\NativeValidation\ProbablyTradingCards</PackageDir>
+    <PackageDir Condition="'$(PackageDir)' == ''">$(MSBuildProjectDirectory)\dist\ProbablyTradingCards</PackageDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(NativeValidation)' == 'true'">
+    <DefineConstants>$(DefineConstants);NATIVE_VALIDATION</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(NativeValidation)' == 'true'">
+    <Compile Include="..\tests\NativeValidation.cs" Link="NativeValidation.cs" />
+    <Compile Include="..\tests\NativeAgentBridge.cs" Link="NativeAgentBridge.cs" />
+    <Reference Include="Assembly-CSharp-firstpass"><HintPath>$(ManagedDir)\Assembly-CSharp-firstpass.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.JSONSerializeModule"><HintPath>$(ManagedDir)\UnityEngine.JSONSerializeModule.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="0Harmony"><HintPath>$(ManagedDir)\0Harmony.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Assembly-CSharp"><HintPath>$(ManagedDir)\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.UIModule"><HintPath>$(ManagedDir)\UnityEngine.UIModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.UI"><HintPath>$(ManagedDir)\UnityEngine.UI.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(ManagedDir)\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.InputLegacyModule"><HintPath>$(ManagedDir)\UnityEngine.InputLegacyModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Newtonsoft.Json"><HintPath>$(ManagedDir)\Newtonsoft.Json.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.TextRenderingModule"><HintPath>$(ManagedDir)\UnityEngine.TextRenderingModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Unity.TextMeshPro"><HintPath>$(ManagedDir)\Unity.TextMeshPro.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <Target Name="ValidateCardSeries">
+    <PropertyGroup>
+      <_SeriesCheckArtifacts>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)', 'series-check'))</_SeriesCheckArtifacts>
+      <_UpdateIdentitiesArg Condition="'$(UpdateSeriesIdentities)' == 'true'">--write-identities</_UpdateIdentitiesArg>
+    </PropertyGroup>
+    <Exec UseUtf8Encoding="Always" StdOutEncoding="utf-8" StdErrEncoding="utf-8" Command="&quot;$(PythonExe)&quot; -X utf8 &quot;$(MSBuildProjectDirectory)/../scripts/export_series.py&quot; --project &quot;$(MSBuildProjectDirectory)&quot; --check-core" />
+    <Exec UseUtf8Encoding="Always" StdOutEncoding="utf-8" StdErrEncoding="utf-8" Command="dotnet run --project &quot;$(MSBuildProjectDirectory)/../scripts/SeriesCheck/SeriesCheck.csproj&quot; -c Release --artifacts-path &quot;$(_SeriesCheckArtifacts)&quot; &quot;-p:TradingCardsDll=$(TargetPath)&quot; &quot;-p:GameDir=$(_GameDir)&quot; -- --core $(_UpdateIdentitiesArg) &quot;$(MSBuildProjectDirectory)&quot;" />
+  </Target>
+  <Target Name="PackageMod" AfterTargets="Build" DependsOnTargets="ValidateCardSeries">
+    <ItemGroup>
+      <ModTextures Include="Textures\Items\*.png" />
+      <CardTextures Include="Textures\Cards\card_*.png" />
+      <CardTextures Include="Textures\Cards\legends_album_bound.png;Textures\Cards\legends_album_sleeve.png" />
+    </ItemGroup>
+    <MakeDir Directories="$(PackageDir)" />
+    <Copy SourceFiles="$(TargetPath);manifest.xml;README.md;CREDITS.md" DestinationFolder="$(PackageDir)" />
+    <Copy SourceFiles="@(ModTextures)" DestinationFolder="$(PackageDir)\Textures\Items" />
+    <Copy SourceFiles="@(CardTextures)" DestinationFolder="$(PackageDir)\Textures\Paper" />
+  </Target>
+</Project>
+
+

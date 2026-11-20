@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Manifest>
+  <ID>dock_letters</ID>
+  <Name>码头来信</Name>
+  <Author>Probably Trading Cards</Author>
+  <ModVersion>1.0.0</ModVersion>
+  <Description>发行商从第 2 天起供应《码头来信》。每包两张，收藏簿收录末班信差和返程船票。</Description>
+  <GameVersions><Version>1.0.0</Version></GameVersions>
+  <Prerequisites><Mod>probably_trading_cards</Mod></Prerequisites>
+  <Assemblies><Assembly>DockLetters.dll</Assembly></Assemblies>
+  <Capabilities />
+</Manifest>

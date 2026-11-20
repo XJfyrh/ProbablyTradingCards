@@ -1,0 +1,441 @@
+{
+  "key": "station_legends",
+  "name": "空间站传奇",
+  "packKind": 1,
+  "releaseDay": 9,
+  "packValue": 120,
+  "cards": [
+    {
+      "id": 9,
+      "art": "food-stamp",
+      "name": "食品券",
+      "rarity": "C",
+      "value": 6,
+      "flavor": "到配给站的时候，攥了一路的券已经叫手汗洇湿了。"
+    },
+    {
+      "id": 10,
+      "art": "scratcher",
+      "name": "刮刮乐彩票",
+      "rarity": "C",
+      "value": 8,
+      "flavor": "同一张票，楼下刮着玩，带到楼上就得藏好。"
+    },
+    {
+      "id": 11,
+      "art": "mentor-contract",
+      "name": "导师的合同",
+      "rarity": "C",
+      "value": 14,
+      "flavor": "租金按周收。"
+    },
+    {
+      "id": 12,
+      "art": "joe-card",
+      "name": "Joe Wild 的名片",
+      "rarity": "C",
+      "value": 16,
+      "flavor": "有难处给乔打电话。等你站稳了，也拉下层区的街坊一把。"
+    },
+    {
+      "id": 13,
+      "art": "foodie",
+      "name": "美食游客",
+      "rarity": "C",
+      "value": 18,
+      "flavor": "“你们平时都吃什么？店里有的，每样来一份。饮料也算。”",
+      "subject": "Character"
+    },
+    {
+      "id": 14,
+      "art": "case",
+      "name": "开箱爱好者",
+      "rarity": "C",
+      "value": 20,
+      "flavor": "“金！金！金！”",
+      "subject": "Character"
+    },
+    {
+      "id": 15,
+      "art": "business-permit",
+      "name": "营业许可证",
+      "rarity": "C",
+      "value": 20,
+      "flavor": "本周「捐赠」已收。执照下周再谈。"
+    },
+    {
+      "id": 16,
+      "art": "juan",
+      "name": "Juan",
+      "rarity": "R",
+      "value": 40,
+      "flavor": "肉罐头和甜饮料都成箱。问起进货单，Juan 说下回还有货。",
+      "subject": "Character"
+    },
+    {
+      "id": 17,
+      "art": "landlord",
+      "name": "房东",
+      "rarity": "R",
+      "value": 50,
+      "flavor": "“不用腾货架，就摆门口。租金稍微往上挪一点。”",
+      "subject": "Character"
+    },
+    {
+      "id": 18,
+      "art": "john",
+      "name": "John Smith",
+      "rarity": "R",
+      "value": 50,
+      "flavor": "“他们这个月拿着同一张照片抓了我四回。今天我就来买点杂货。”",
+      "subject": "Character"
+    },
+    {
+      "id": 19,
+      "art": "arthur",
+      "name": "Arthur Lafleur",
+      "rarity": "R",
+      "value": 50,
+      "flavor": "通缉简报上写着好几场革命。到了柜台，他问店里还有没有吃的。",
+      "subject": "Character"
+    },
+    {
+      "id": 20,
+      "art": "appraiser",
+      "name": "鉴定委员会成员",
+      "rarity": "R",
+      "value": 60,
+      "flavor": "鉴定还没开张，入会费倒估得很准。",
+      "subject": "Character"
+    },
+    {
+      "id": 21,
+      "art": "leroy",
+      "name": "Leroy",
+      "rarity": "R",
+      "value": 60,
+      "flavor": "“例行检查。”他就站在印着自己照片的通缉令旁边。",
+      "subject": "Character"
+    },
+    {
+      "id": 22,
+      "art": "nuclear-waste",
+      "name": "核废料",
+      "rarity": "R",
+      "value": 60,
+      "flavor": "合规处置的报价太高。"
+    },
+    {
+      "id": 23,
+      "art": "scav-token",
+      "name": "拾荒者信物",
+      "rarity": "R",
+      "value": 65,
+      "flavor": "往橱窗里一摆，认识它的人就愿意进来坐坐。"
+    },
+    {
+      "id": 24,
+      "art": "james",
+      "name": "James Bailey",
+      "rarity": "R",
+      "value": 70,
+      "flavor": "闲置出清。警棍、手枪、治安部钥匙卡。全拿有折扣。",
+      "subject": "Character"
+    },
+    {
+      "id": 25,
+      "art": "loan",
+      "name": "高利贷商",
+      "rarity": "R",
+      "value": 70,
+      "flavor": "“朋友，买铺子的钱我拿得出。利息嘛，比银行高那么一点。”",
+      "subject": "Character"
+    },
+    {
+      "id": 26,
+      "art": "blackmailer",
+      "name": "勒索者",
+      "rarity": "R",
+      "value": 70,
+      "flavor": "“下周我来取第一笔。你记个日子，我记得你的过去。”",
+      "subject": "Character"
+    },
+    {
+      "id": 27,
+      "art": "liquid-luck",
+      "name": "液体好运",
+      "rarity": "R",
+      "value": 70,
+      "flavor": "三天好运。怎么一股铁锈味？"
+    },
+    {
+      "id": 28,
+      "art": "blue-blood",
+      "name": "一袋“蓝血”",
+      "rarity": "R",
+      "value": 80,
+      "flavor": "就这么一袋清血管的凝胶，到了上层区也有人等着买。"
+    },
+    {
+      "id": 29,
+      "art": "cartel",
+      "name": "卡特尔联络人",
+      "rarity": "SR",
+      "value": 180,
+      "flavor": "准时交货。最好别糊弄他。",
+      "subject": "Character"
+    },
+    {
+      "id": 30,
+      "art": "eleanor-perfume",
+      "name": "Eleanor 的香水",
+      "rarity": "SR",
+      "value": 220,
+      "flavor": "埃莉诺的常用香水。喷了有奇效。"
+    },
+    {
+      "id": 31,
+      "art": "command-card",
+      "name": "指挥钥匙卡",
+      "rarity": "SR",
+      "value": 240,
+      "flavor": "黑市老板把卡推过来，嘱咐了一句：“想好了再刷，就一次。”"
+    },
+    {
+      "id": 32,
+      "art": "odin",
+      "name": "Odin Haraldsson",
+      "rarity": "SR",
+      "value": 260,
+      "flavor": "绿名片上就一个号码。有禁货，打这个。",
+      "subject": "Character"
+    },
+    {
+      "id": 33,
+      "art": "transmitter",
+      "name": "共和国发射器",
+      "rarity": "SR",
+      "value": 280,
+      "flavor": "货照常交。送到哪儿，共和国会知道。"
+    },
+    {
+      "id": 34,
+      "art": "butcher",
+      "name": "屠夫",
+      "rarity": "SR",
+      "value": 300,
+      "flavor": "整批价里有一根撬棍，也有几块生肉。",
+      "subject": "Character"
+    },
+    {
+      "id": 35,
+      "art": "synaprest",
+      "name": "赛纳普斯注射器",
+      "rarity": "SR",
+      "value": 300,
+      "flavor": "打过针的第二天，还有人来敲门，问要不要一起吃饭。"
+    },
+    {
+      "id": 36,
+      "art": "georgio",
+      "name": "Georgio",
+      "rarity": "SSR",
+      "value": 600,
+      "flavor": "“外星遗物，朋友！你仔细看看，这锈可有年头了。”",
+      "subject": "Character"
+    },
+    {
+      "id": 37,
+      "art": "lun",
+      "name": "Officer Lun",
+      "rarity": "SSR",
+      "value": 650,
+      "flavor": "“公民，我忘带饭盒了。”",
+      "subject": "Character"
+    },
+    {
+      "id": 38,
+      "art": "jackson",
+      "name": "Dr. Jackson",
+      "rarity": "SSR",
+      "value": 700,
+      "flavor": "“机器晚上接着干活。头一块电池，我送你。”",
+      "subject": "Character"
+    },
+    {
+      "id": 39,
+      "art": "eleanor",
+      "name": "Eleanor",
+      "rarity": "SSR",
+      "value": 750,
+      "flavor": "刚搬到下层区那会儿，她还会问店里有没有新鲜吃食。",
+      "subject": "Character"
+    },
+    {
+      "id": 40,
+      "art": "serpico",
+      "name": "Cadet Serpico",
+      "rarity": "SSR",
+      "value": 800,
+      "flavor": "他是真想过，要从里头把治安部变好一点。",
+      "subject": "Character"
+    },
+    {
+      "id": 41,
+      "art": "sawyer",
+      "name": "Sawyer",
+      "rarity": "SSR",
+      "value": 800,
+      "flavor": "“老板，扫帚放下。这条街扫地的生意，我们包了。”",
+      "subject": "Character"
+    },
+    {
+      "id": 42,
+      "art": "li",
+      "name": "Li Bei Wen",
+      "rarity": "SSR",
+      "value": 850,
+      "flavor": "样品装在一支用过的注射器里。",
+      "subject": "Character"
+    },
+    {
+      "id": 43,
+      "art": "lou",
+      "name": "Lou",
+      "rarity": "SSR",
+      "value": 900,
+      "flavor": "“送你玩具箱，小营养果。”临走还叮嘱，玩具一件也别碰。",
+      "subject": "Character"
+    },
+    {
+      "id": 44,
+      "art": "mentor",
+      "name": "导师",
+      "rarity": "UR",
+      "value": 1200,
+      "flavor": "“打烊记得把货收进来。你不收，夜里有人替你收。”",
+      "subject": "Character"
+    },
+    {
+      "id": 45,
+      "art": "joe",
+      "name": "Joe Wild",
+      "rarity": "UR",
+      "value": 1600,
+      "flavor": "“新邻居，这条街夜里可不太平。还好，可以买保险。”",
+      "subject": "Character"
+    },
+    {
+      "id": 46,
+      "art": "deed",
+      "name": "房契",
+      "rarity": "UR",
+      "value": 1500,
+      "flavor": "账本上，租金那一栏终于可以空着了。"
+    },
+    {
+      "id": 47,
+      "art": "neural-core",
+      "name": "神经核心模组（无限制）",
+      "rarity": "UR",
+      "value": 1800,
+      "flavor": "高性能版。耗电量大。核心自行作主，本店概不保修。"
+    },
+    {
+      "id": 48,
+      "art": "mind",
+      "name": "心智重编程器",
+      "rarity": "UR",
+      "value": 1800,
+      "flavor": "连改一点脾气，报价单上也得列几件超科技零件。"
+    },
+    {
+      "id": 49,
+      "art": "eleanor-scav",
+      "alternateOf": 39,
+      "title": "我们自己的生活",
+      "value": 2250,
+      "flavor": "从垃圾场回来，她和妈妈一路商量晚饭吃什么。"
+    },
+    {
+      "id": 50,
+      "art": "eleanor-rev-cyanotype",
+      "alternateOf": 39,
+      "title": "此后我有了方向",
+      "value": 2250,
+      "flavor": "“这是给我妈买的生日礼物。你收着吧。……你这儿有枪吗？”"
+    },
+    {
+      "id": 51,
+      "art": "joe-network",
+      "alternateOf": 45,
+      "title": "我认识一个人",
+      "value": 3200,
+      "flavor": "道喜免费。牵线另算。"
+    },
+    {
+      "id": 52,
+      "art": "georgio-farewell",
+      "alternateOf": 36,
+      "title": "再见",
+      "value": 2600,
+      "flavor": "欠条收好，朋友。等乔治奥把别的星球也翻一遍，就回来找你。"
+    },
+    {
+      "id": 53,
+      "art": "georgio-return",
+      "alternateOf": 36,
+      "title": "归来",
+      "value": 2400,
+      "flavor": "乔治奥还款，四倍。房租，已付。"
+    },
+    {
+      "id": 54,
+      "art": "serpico-rev",
+      "alternateOf": 40,
+      "title": "名单已经公开",
+      "value": 2400,
+      "flavor": "名单已公开。起诉通报只有基层警员的名字。"
+    },
+    {
+      "id": 55,
+      "art": "serpico-security",
+      "alternateOf": 40,
+      "title": "新的警徽",
+      "value": 2400,
+      "flavor": "他又戴上了警徽。这回要查的人里，也有戴着这种警徽的。"
+    },
+    {
+      "id": 56,
+      "art": "serpico-depart",
+      "alternateOf": 40,
+      "title": "最后一班船",
+      "value": 2400,
+      "flavor": "一家人的船票，是那份文件换来的。"
+    },
+    {
+      "id": 57,
+      "art": "waste-return",
+      "alternateOf": 22,
+      "title": "失物归还",
+      "value": 900,
+      "flavor": "“不用谢！”——最伟大的拾荒者"
+    },
+    {
+      "id": 58,
+      "art": "jackson-demo",
+      "alternateOf": 38,
+      "title": "请看这一步",
+      "value": 2100,
+      "flavor": "废铁进去，金属锭出来。"
+    },
+    {
+      "id": 59,
+      "art": "foodie-celebration",
+      "alternateOf": 13,
+      "title": "今夜加餐",
+      "value": 600,
+      "flavor": "庆典节目单的背面，被他拿来记还有哪几摊没吃过。"
+    }
+  ]
+}

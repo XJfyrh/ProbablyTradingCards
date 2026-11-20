@@ -1,0 +1,18 @@
+# 本机工具、独立参考仓库与历史验证材料
+/tools/
+/probably-stolen-modding/
+/.prototype-checks/
+
+# 构建、发布与美术预览产物
+/artifacts/
+**/bin/
+**/obj/
+**/dist/
+__pycache__/
+*.pyc
+.venv/
+
+# 编辑器本机配置
+.vs/
+*.user
+*.suo
