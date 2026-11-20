@@ -2,6 +2,8 @@
 
 用同一次构建准备 Steam 创意工坊内容和 GitHub 安装 ZIP。版本取自 [`manifest.xml`](../../ProbablyTradingCards/manifest.xml)。更新时保持模组 ID 不变，并按实际测试结果维护 `GameVersions`。
 
+试玩记录使用游戏主菜单的版本。正式版 100-Rev13 的模组菜单仍按 Unity 字段 `0.46D` 识别兼容性，100-Rev14 起用实际游戏版本匹配 `1.0.0` 前缀。支持 Rev13 时在清单中保留旧识别项。[官方版本匹配规则](https://github.com/dragonpan2/probably-stolen-modding/blob/main/ModdingGuide.zh-CN.md#游戏版本)
+
 ## 生成发布包
 
 安装 PowerShell 7、.NET 10 SDK 和带 Pillow 的 Python。构建使用本机《Probably Stolen》正式游戏的 DLL。Python 可复用仓库的 `.venv`，也可通过 `-PythonExe` 指定。[构建环境](../../README.md#构建模组)
