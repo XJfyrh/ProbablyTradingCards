@@ -247,6 +247,7 @@ namespace ProbablyTradingCards
                 CheckAlternateArt(check, temporary, viewingInventory);
                 CheckOpening(check, temporary, windows);
                 CheckNativeCardInput(check, temporary.First(item => item.IsTag(NativeItems.CardTag)));
+                CheckScavengedCards(check);
                 check(originalModData == null || originalModData.Count == savedModData.Count &&
                     originalModData.All(pair => savedModData.TryGetValue(pair.Key, out string value) && value == pair.Value),
                     "validation leaves the original mod progress unchanged");
@@ -1277,6 +1278,164 @@ namespace ProbablyTradingCards
                 station.dayCounter = originalDay;
                 foreach (GameItem card in shortInventory.childItems.Concat(fullInventory.childItems).ToList()) card.Destroy();
                 SeriesAlbum.RefreshOpenBooks();
+            }
+        }
+
+        private static void CheckScavengedCards(Action<bool, string> check)
+        {
+            var ground = new GameGridInventory(12, 12);
+            var pockets = new GameGridInventory(2, 2);
+            var fullGround = new GameGridInventory(1, 2);
+            var layout = new GridPixelElement(3, 1);
+            var window = new PixelWindow();
+            layout.Attach(ground, 0, 0);
+            layout.Attach(pockets, 1, 0);
+            layout.Attach(fullGround, 2, 0);
+            window.Attach(layout);
+            ContainerHelper.AllowOnlyOwnedItems(ground);
+            ContainerHelper.AllowOnlyOwnedItems(pockets);
+            var nativeLoot = DirectoryMaster.Item("wire");
+            var filler = DirectoryMaster.Item(NativeItems.CardId(0, 0));
+            try
+            {
+                GeneralHelper.SetItemOwned(nativeLoot);
+                GeneralHelper.SetItemOwned(filler);
+                check(GraphUtils.TryAcceptAll(ground, nativeLoot) == 0 && nativeLoot.parentInventory == ground,
+                    "scavenging fixture starts with native loot on the ground");
+                check(!ScavengedCardDrop.TryDropBonus(8, new ScavengingRandom(1200), ground) &&
+                    ground.childItems.Count == 1 && nativeLoot.parentInventory == ground,
+                    "miss leaves only the native loot on the ground");
+                check(ScavengedCardDrop.TryDropBonus(8, new ScavengingRandom(1199, 9750, 0, 9999), ground),
+                    "hit puts the bonus into the native owned-items-only ground grid");
+                check(ground.childItems.Count == 2 && nativeLoot.parentInventory == ground,
+                    "bonus placement keeps the native item");
+                var card = ground.childItems.Single(item => item != nativeLoot);
+                check(card.identifier == NativeItems.CardId(7, 2) && GeneralHelper.IsItemOwned(card) &&
+                    TradingCardsApi.TryGetCard(card, out var definition, out int condition) && definition.Id == 7 && condition == 2,
+                    "day 8 high rarity and intact rolls spawn the expected owned Night Stories single");
+                check(GraphUtils.TryAcceptAll(pockets, card) == 0 && card.parentInventory == pockets &&
+                    !ground.childItems.Contains(card) && GeneralHelper.IsItemOwned(card),
+                    "native inventory transfer picks up the same owned card without leaving a copy");
+
+                check(GraphUtils.TryAcceptAll(fullGround, filler) == 0 && filler.parentInventory == fullGround,
+                    "scavenging fixture fills a card-sized ground grid");
+                GameItem failedDrop = null;
+                fullGround.mayInventoryAddItemFunc = (candidate, _) =>
+                {
+                    failedDrop = candidate;
+                    return true;
+                };
+                check(!ScavengedCardDrop.TryDropBonus(8, new ScavengingRandom(0, 9750, 0, 9999), fullGround) &&
+                    fullGround.childItems.Count == 1 && filler.parentInventory == fullGround,
+                    "full ground keeps the existing item and reports no bonus");
+                check(failedDrop is GameItemElement element && element.IsDestroyed() && failedDrop.parentInventory == null,
+                    "the bonus that could not fit is destroyed");
+
+                nativeLoot.Destroy();
+                CheckNativeScavengeAction(check, ground);
+            }
+            finally
+            {
+                foreach (GameItem item in ground.childItems.Concat(pockets.childItems).Concat(fullGround.childItems)
+                    .Concat(new[] { nativeLoot, filler }).Distinct().ToList())
+                    if (item is GameItemElement element && !element.IsDestroyed()) item.Destroy();
+                window.Destroy();
+            }
+        }
+
+        private static int scavengingRolls;
+
+        private static bool ForceScavengedCard(ref OwnedCard __result)
+        {
+            scavengingRolls++;
+            __result = new OwnedCard { definition = 7, condition = 1 };
+            return false;
+        }
+
+        private static void CheckNativeScavengeAction(Action<bool, string> check, GameGridInventory ground)
+        {
+            var action = AccessTools.Method(typeof(ScavHelper), nameof(ScavHelper.ScavengeDumpingGrounds));
+            var patches = Harmony.GetPatchInfo(action);
+            check(patches != null && patches.Transpilers.Any(patch => patch.PatchMethod.DeclaringType.Assembly == typeof(ModEntry).Assembly),
+                "native dumping-ground action has the mod's successful-search patch");
+
+            var entry = EmporiumEntry.Instance;
+            var store = PlayerStore.Instance;
+            var originalGround = entry.afterhourInventory;
+            var originalHealth = store.healthData;
+            var originalStats = store.runStats;
+            var originalRandom = RNG.random;
+            var originalUnityRandom = UnityEngine.Random.state;
+            int attempts = store.scavengingAttempts;
+            int minorImmunity = store.dumpingGroundMinorWoundImmunitySearchesLeft;
+            int majorImmunity = store.dumpingGroundMajorWoundImmunitySearchesLeft;
+            bool satchelFound = store.dumpingGroundSatchelFound;
+            bool backpackFound = store.dumpingGroundKidsBackpackFound;
+            bool devMode = store.devMode;
+
+            var harmony = new Harmony(ModEntry.ModId + ".validation.scavenging");
+            var roll = AccessTools.Method(typeof(ScavengedCards), nameof(ScavengedCards.Roll));
+            var force = AccessTools.Method(typeof(NativeValidation), nameof(ForceScavengedCard));
+            try
+            {
+                entry.afterhourInventory = ground;
+                store.healthData = new HealthData { isWoundedFresh = true, luck = 100 };
+                store.runStats = new RunStats();
+                RNG.random = new System.Random(42);
+                UnityEngine.Random.InitState(42);
+                store.scavengingAttempts = 0;
+                store.dumpingGroundMinorWoundImmunitySearchesLeft = 1;
+                store.dumpingGroundMajorWoundImmunitySearchesLeft = 1;
+                store.dumpingGroundSatchelFound = true;
+                store.dumpingGroundKidsBackpackFound = true;
+                store.devMode = false;
+                scavengingRolls = 0;
+                harmony.Patch(roll, prefix: new HarmonyMethod(force));
+
+                ScavHelper.ScavengeDumpingGrounds();
+                check(scavengingRolls == 0 && ground.childItems.Count == 0 && store.scavengingAttempts == 0,
+                    "a blocked native search does not attempt a card drop or consume a search");
+
+                store.healthData.isWoundedFresh = false;
+                store.devMode = true;
+                ScavHelper.ScavengeDumpingGrounds();
+                var cards = ground.childItems.Where(item => item.IsTag(NativeItems.CardTag)).ToList();
+                check(scavengingRolls == 1 && store.scavengingAttempts == 1 && store.runStats.scavengeAttempts == 1,
+                    "one successful native search triggers the bonus roll once and consumes the vanilla attempt");
+                check(cards.Count == 1 && cards[0].identifier == NativeItems.CardId(7, 1) &&
+                    cards[0].GetTagReadonly(NativeItems.ConditionTag).GetInt() == 1 && ground.childItems.Count > cards.Count,
+                    "actual search preserves native loot and drops the expected lightly worn card on the ground");
+            }
+            finally
+            {
+                try { harmony.Unpatch(roll, force); }
+                finally
+                {
+                    entry.afterhourInventory = originalGround;
+                    store.healthData = originalHealth;
+                    store.runStats = originalStats;
+                    RNG.random = originalRandom;
+                    UnityEngine.Random.state = originalUnityRandom;
+                    store.scavengingAttempts = attempts;
+                    store.dumpingGroundMinorWoundImmunitySearchesLeft = minorImmunity;
+                    store.dumpingGroundMajorWoundImmunitySearchesLeft = majorImmunity;
+                    store.dumpingGroundSatchelFound = satchelFound;
+                    store.dumpingGroundKidsBackpackFound = backpackFound;
+                    store.devMode = devMode;
+                    scavengingRolls = 0;
+                }
+            }
+        }
+
+        private sealed class ScavengingRandom(params int[] rolls) : System.Random
+        {
+            private readonly Queue<int> values = new Queue<int>(rolls);
+
+            public override int Next(int maxValue)
+            {
+                int value = values.Dequeue();
+                if (value < 0 || value >= maxValue) throw new InvalidOperationException("invalid scavenging test roll");
+                return value;
             }
         }
     }

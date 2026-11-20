@@ -375,6 +375,36 @@ var named = TradingCardsApi.RegisterSeries("other_author", "station_legends", na
 Check(named.IsExpansion && !named.Cards.Values.Any(card => card.IsLegends), "external namesake inherited built-in rules");
 Check(TradingCardsApi.UnregisterSeries("other_author", "station_legends"), "namesake removal");
 
+Check(ScavengedCards.Roll(0, new ScavengingRandom()) == null, "scavenging before Night Stories release");
+Check(ScavengedCards.Roll(9, new ScavengingRandom((10_000, 1_200))) == null, "scavenging card chance ends at 12%");
+foreach (var (day, edges) in new[]
+{
+    (8, new[] { (0, "C"), (8_049, "C"), (8_050, "R"), (9_749, "R"), (9_750, "SR"), (9_999, "SR") }),
+    (9, new[] { (0, "C"), (7_999, "C"), (8_000, "R"), (9_699, "R"), (9_700, "SR"),
+        (9_949, "SR"), (9_950, "SSR"), (9_994, "SSR"), (9_995, "UR"), (9_999, "UR") })
+})
+{
+    foreach (var (rarityRoll, rarity) in edges)
+    {
+        var expected = CardGame.Catalogue.Values.Where(card => !card.IsAlternate && card.Rarity == rarity &&
+            (card.Series == nightStories || (day == 9 && card.IsLegends))).Select(card => card.Id).ToHashSet();
+        var selected = new HashSet<int>();
+        for (int index = 0; index < expected.Count; index++)
+        {
+            var card = ScavengedCards.Roll(day, new ScavengingRandom((10_000, 1_199), (10_000, rarityRoll),
+                (expected.Count, index), (10_000, 0)));
+            Check(card != null && card.condition == 0 && selected.Add(card.definition), "scavenging pool index or drop boundary");
+        }
+        Check(expected.Count > 0 && expected.SetEquals(selected), $"day {day}: scavenging pool for {rarity}");
+    }
+}
+int earlyCommons = nightStories.Cards.Values.Count(card => card.Rarity == "C");
+foreach (var (wearRoll, condition) in new[] { (0, 0), (8_499, 0), (8_500, 1), (9_949, 1), (9_950, 2), (9_999, 2) })
+{
+    var card = ScavengedCards.Roll(1, new ScavengingRandom((10_000, 0), (10_000, 0), (earlyCommons, 0), (10_000, wearRoll)));
+    Check(card.condition == condition, "scavenging card wear boundary");
+}
+
 foreach (var series in CardGame.Series.All.Where(series => series.IsExpansion))
 {
     for (int seed = 0; seed < 32; seed++)
@@ -405,6 +435,18 @@ Console.WriteLine($"PASS {checks} checks. Registered series: {string.Join(", ", 
 sealed class WeightRollRandom(int scale, int roll) : Random
 {
     public override int Next(int maxValue) => maxValue == scale ? roll : 0;
+}
+
+sealed class ScavengingRandom(params (int Scale, int Roll)[] sequence) : Random
+{
+    private readonly Queue<(int Scale, int Roll)> rolls = new(sequence);
+
+    public override int Next(int maxValue)
+    {
+        var (scale, roll) = rolls.Dequeue();
+        if (scale != maxValue) throw new Exception($"Expected scavenging roll below {scale}, got {maxValue}.");
+        return roll;
+    }
 }
 
 sealed class ScriptedRandom : Random

@@ -7,6 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../ProbablyTradingCards/CardGame.cs" Link="CardGame.cs" />
+    <Compile Include="../../ProbablyTradingCards/ScavengedCards.cs" Link="ScavengedCards.cs" />
     <Compile Include="../../ProbablyTradingCards/CardRegistry.cs" Link="CardRegistry.cs" />
     <Compile Include="../../ProbablyTradingCards/TradingCardsApi.cs" Link="TradingCardsApi.cs" />
     <Compile Include="../../ProbablyTradingCards/CardSeries.cs" Link="CardSeries.cs" />
