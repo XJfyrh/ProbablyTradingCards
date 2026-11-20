@@ -240,6 +240,7 @@ namespace ProbablyTradingCards
                 check(!buyer.IsClientBuyingThisItem(temporary.Last(item => item.identifier == NativeItems.PackId)), "night buyer only collects singles");
                 check(!buyer.IsClientBuyingThisItem(album), "buyer leaves album contents alone");
                 CheckCustomers(check, temporary, windows);
+                CheckAppointments(check, temporary, windows);
                 CheckLegends(check, temporary);
                 foreach (var series in CardGame.Series.All.Where(series => series.IsExpansion))
                     CheckExpansion(check, series, temporary, windows, viewingInventory);
@@ -496,6 +497,92 @@ namespace ProbablyTradingCards
             check(card.parentInventory == inventory && card.MayActivateSlotItem() && card.CanActivateSlotItem(),
                 "card is available for native slot activation: " + card.identifier);
             card.ActivateSlotItem();
+        }
+
+        private static void CheckAppointments(Action<bool, string> check, List<GameItem> temporary, List<PixelWindow> windows)
+        {
+            var store = PlayerStore.Instance;
+            var entry = EmporiumEntry.Instance;
+            var originalCounter = entry.backInvinvElement;
+            var originalManager = store.storeClientManager;
+            var originalClient = store.currentClientInstance;
+            var originalState = store.storeState;
+            var originalData = store.modData;
+            int originalDay = StoreStation.GetDayCounter();
+            var counter = new GameGridInventory(6, 3);
+            var window = new PixelWindow();
+            window.Attach(counter);
+            windows.Add(window);
+
+            GameItem PutCard(CardDefinition card, int condition, bool owned)
+            {
+                GameItem item = DirectoryMaster.Item(NativeItems.CardId(card.Id, condition));
+                temporary.Add(item);
+                GeneralHelper.SetItemOwned(item, owned);
+                GraphUtils.TryAcceptAll(counter, item);
+                return item;
+            }
+
+            try
+            {
+                AccessTools.Property(typeof(EmporiumEntry), "backInvinvElement").SetValue(entry, counter);
+                store.storeClientManager = new StoreClientManager();
+                store.currentClientInstance = null;
+                store.modData = new Dictionary<string, string>();
+                StoreStation.Instance.dayCounter = 9;
+                store.storeState = PlayerStore.StoreState.OPEN;
+                var joe = CardGame.Catalogue.Values.Single(card => card.IsLegends && card.Art == "joe");
+                var eleanor = CardGame.Catalogue[StationLegends.EleanorRev];
+                GameItem ur = PutCard(joe, 2, true);
+                GameItem copy = PutCard(joe, 2, true);
+                GameItem alternate = PutCard(eleanor, 1, true);
+                GameItem preview = PutCard(joe, 0, false);
+                check(Enumerable.Range(0, 3).Select(grade => RareCardAppointments.Quote(joe, grade))
+                    .SequenceEqual(new[] { 336, 840, 1120 }), "appointment prices derive from wear, not negotiated value");
+                check(!RareCardAppointments.TryBook(preview), "unowned card cannot be booked");
+                check(RareCardAppointments.TryBook(ur) && !RareCardAppointments.TryBook(alternate),
+                    "only one owned rare card can be booked");
+                var first = RareCardAppointments.ReadPending();
+                check(first != null && first.ItemId == ur.GetUniqueID() && first.Price == 1120 && first.DueDay == 10,
+                    "appointment is read back with exact entity, price and opening day");
+                RareCardAppointments.Queue(store.storeClientManager);
+                check(store.storeClientManager.clientStack.Count == 0, "booking during opening waits until next opening");
+                StoreStation.Instance.dayCounter = 10;
+                RareCardAppointments.Queue(store.storeClientManager);
+                RareCardAppointments.Queue(store.storeClientManager);
+                var buyer = store.storeClientManager.clientStack.Single();
+                check(buyer.identifier == RareCardAppointments.BuyerId && buyer.IsClientBuyingThisItem(ur) &&
+                    !buyer.IsClientBuyingThisItem(copy) && !buyer.IsClientBuyingThisItem(alternate),
+                    "scheduled buyer only accepts the booked physical card");
+                store.currentClientInstance = StoreClientInstance.CreateClientInstance(buyer);
+                check(ur.GetNegociatedValue() == 1120 && store.CanSellThisItem(ur), "native sale path sees the exact booked price");
+                check(RareCardAppointments.Cancel(first) && RareCardAppointments.TryBook(alternate),
+                    "cancellation frees the slot for an alternate card");
+                buyer.OnItemBought(ur, first.Price);
+                check(RareCardAppointments.ReadPending()?.ItemId == alternate.GetUniqueID() &&
+                    !store.CanSellThisItem(ur), "stale buyer does not sell or alter a replacement booking");
+
+                store.storeClientManager.clientStack.Clear();
+                StoreStation.Instance.dayCounter = 12;
+                RareCardAppointments.Queue(store.storeClientManager);
+                var retried = store.storeClientManager.clientStack.Single();
+                store.currentClientInstance = StoreClientInstance.CreateClientInstance(retried);
+                int price = RareCardAppointments.Quote(eleanor, 1);
+                check(alternate.GetNegociatedValue() == price && store.CanSellThisItem(alternate),
+                    "unserved appointment is still eligible at the next opening");
+                retried.OnItemBought(alternate, price);
+                check(RareCardAppointments.ReadPending() == null && !store.CanSellThisItem(alternate),
+                    "successful purchase clears booking and prevents a repeat sale");
+            }
+            finally
+            {
+                store.modData = originalData;
+                store.storeState = originalState;
+                store.currentClientInstance = originalClient;
+                store.storeClientManager = originalManager;
+                StoreStation.Instance.dayCounter = originalDay;
+                AccessTools.Property(typeof(EmporiumEntry), "backInvinvElement").SetValue(entry, originalCounter);
+            }
         }
 
         private static string PlaceDistributorOrder(StoreClient client, int option)
