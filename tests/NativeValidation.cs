@@ -17,6 +17,25 @@ namespace ProbablyTradingCards
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "卡面品相样品", CreateCardArtSamples);
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "星港收藏簿样品", CreateLegendsSamples);
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "异次元卡商试玩存档", SeedBranchSellerPlaytest);
+            ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "黄牛周五试玩存档", SeedScalperPlaytest);
+        }
+
+        private static void SeedScalperPlaytest()
+        {
+            var store = PlayerStore.Instance;
+            int day = StoreStation.GetDayCounter();
+            if (store.saveSlotId != 27 || store.storeState != PlayerStore.StoreState.MORNING || (day != 23 && day != 26))
+            {
+                ModEntry.Log.Warning("黄牛试玩样品只允许将开店前的 27 号副本准备到第 26 天。");
+                return;
+            }
+
+            // Persist only the day and funds. The formal build generates the normal customer queue.
+            StoreStation.Instance.dayCounter = 26;
+            store.ModCash(Math.Max(0, 10_000 - store.GetCash()), playSound: false);
+            store.SaveGame();
+            var box = CardScalper.WeeklyBox(26, CardCustomerRules.SupplyWeek(26), store.runID);
+            ModEntry.Log.Log("CARD SCALPER FIXTURE SAVED slot 27, day 26, box " + (box?.ToString() ?? "none"));
         }
 
         private static void SeedBranchSellerPlaytest()
@@ -280,6 +299,7 @@ namespace ProbablyTradingCards
                 check(!buyer.IsClientBuyingThisItem(temporary.Last(item => item.identifier == NativeItems.PackId)), "night buyer only collects singles");
                 check(!buyer.IsClientBuyingThisItem(album), "buyer leaves album contents alone");
                 CheckCustomers(check, temporary, windows);
+                CheckCardScalper(check, temporary, windows);
                 CheckAppointments(check, temporary, windows);
                 CheckBranchAlternateSeller(check, temporary, windows);
                 CheckLegends(check, temporary);
@@ -843,6 +863,252 @@ namespace ProbablyTradingCards
                 store.playerCash = originalCash;
                 store.wildFavor = originalFavor;
                 store.IsPropertyPaid = originalPropertyPaid;
+            }
+        }
+
+        private static void CheckCardScalper(Action<bool, string> check, List<GameItem> temporary, List<PixelWindow> windows)
+        {
+            var entry = EmporiumEntry.Instance;
+            var store = PlayerStore.Instance;
+            var originalInventory = entry.invElement;
+            var originalFront = entry.frontInvinvElement;
+            var originalBack = entry.backInvinvElement;
+            var originalManager = store.storeClientManager;
+            var originalClient = store.currentClientInstance;
+            var originalNegotiated = store.currentNegociatedItem;
+            var originalModData = store.modData;
+            var originalStats = store.runStats;
+            var originalReputations = store.storeReputations;
+            var originalState = store.storeState;
+            string originalRunId = store.runID;
+            int originalDay = StoreStation.GetDayCounter();
+            int originalCash = store.GetCash();
+            int originalFavor = store.wildFavor;
+
+            var inventory = new GameGridInventory(12, 4);
+            var front = new GameGridInventory(8, 3);
+            var back = new GameGridInventory(6, 3);
+            var window = new PixelWindow();
+            var layout = new GridPixelElement(3, 1);
+            layout.Attach(inventory, 0, 0);
+            layout.Attach(front, 1, 0);
+            layout.Attach(back, 2, 0);
+            window.Attach(layout);
+            windows.Add(window);
+            var frontProperty = AccessTools.Property(typeof(EmporiumEntry), nameof(EmporiumEntry.frontInvinvElement));
+            var backProperty = AccessTools.Property(typeof(EmporiumEntry), nameof(EmporiumEntry.backInvinvElement));
+
+            StoreClientManager Queue(int day)
+            {
+                StoreStation.Instance.dayCounter = day;
+                store.currentClientInstance = null;
+                var manager = store.storeClientManager = new StoreClientManager();
+                CardScalper.Queue(manager);
+                CardScalper.Queue(manager);
+                return manager;
+            }
+
+            StoreClient Visit(int day)
+            {
+                var manager = Queue(day);
+                check(manager.clientStack.Count == 1 && manager.clientStack[0].identifier == CardScalper.SellerId,
+                    "one separate card scalper is queued on Friday " + day);
+                return manager.clientStack.Single();
+            }
+
+            void Present(StoreClient seller, string choice = null)
+            {
+                store.currentClientInstance = StoreClientInstance.CreateClientInstance(seller);
+                var greeting = seller.mainDialogue;
+                check(greeting.plainText == "嘿嘿，周二没抢到？我这儿有原封的。", "card scalper's exact first line");
+                greeting.ExecuteEndAction();
+                if (greeting.nextDialogue?.choices.Count > 0)
+                {
+                    var menu = greeting.nextDialogue;
+                    check(front.childItems.Count == 0 && greeting.choices.Count == 0, "stock waits for the native second-line selection");
+                    int index = menu.choices.FindIndex(option => option.Item1.GetDisplayName().Contains(choice ?? "瘦包"));
+                    check(index >= 0 && menu.IsChoiceEnabledAt(index), "the desired native scalper choice is available");
+                    var (_, branch, action) = menu.choices[index];
+                    check(branch?.nextDialogue != null, "native choice has a real reply dialogue");
+                    action?.Invoke();
+                    branch.nextDialogue.ExecuteEndAction();
+                }
+                temporary.AddRange(front.childItems);
+            }
+
+            GameItem CheckPack(PackKind kind, int price)
+            {
+                var pack = front.childItems.Single(NativeItems.IsPack);
+                check(!GeneralHelper.IsItemOwned(pack) && pack.identifier == NativeItems.PackItemId(kind) &&
+                    NativeItems.ReadPack(pack).kind == kind && !NativeItems.ReadPack(pack).resealed &&
+                    pack.GetNegociatedValue() == price, "chosen sealed Legends pack has its fixed native quote");
+                return pack;
+            }
+
+            GameItem CheckSingle(string rarity)
+            {
+                var item = front.childItems.Single(item => item.IsTag(NativeItems.CardTag));
+                check(TradingCardsApi.TryGetCard(item, out var card, out int condition) &&
+                    card.IsLegends && !card.IsAlternate && card.Rarity == rarity && condition == 2 &&
+                    !GeneralHelper.IsItemOwned(item) && item.GetNegociatedValue() == card.Value * 3,
+                    "weekly single is a mint Legends base " + rarity + " at three times base price");
+                return item;
+            }
+
+            GameItem CheckBox(PackKind kind, int price)
+            {
+                var item = front.childItems.Single(NativeItems.IsBox);
+                string id = kind == PackKind.Slim ? NativeItems.SlimBoxId : NativeItems.FatBoxId;
+                check(item.identifier == id && !GeneralHelper.IsItemOwned(item) && item.GetNegociatedValue() == price &&
+                    NativeItems.ReadBox(item).packs.All(pack => pack.kind == kind && !pack.resealed),
+                    "the extra sealed box has its native fixed quote and genuine inner packs");
+                return item;
+            }
+
+            string RunWithBox(int day, PackKind kind)
+            {
+                int week = CardCustomerRules.SupplyWeek(day);
+                return Enumerable.Range(1, 512).Select(index => $"ec7e4784-607b-4383-a77c-{index:x12}")
+                    .First(runId => CardScalper.WeeklyBox(day, week, runId) == kind);
+            }
+
+            void Buy(GameItem offer, int price)
+            {
+                check(GraphUtils.TryAcceptAll(back, offer) == 0 && offer.parentInventory == back,
+                    "the fixed quote is available at the native negotiation table");
+                store.currentNegociatedItem = offer;
+                store.playerCash = price - 1;
+                check(!store.CanBuyItemFromTable(), "one credit below the scalper quote blocks purchase");
+                store.playerCash += 11;
+                check(store.CanBuyItemFromTable(), "the scalper quote is affordable at the native counter");
+                store.BuyItemFromTable();
+                check(store.GetCash() == 10 && GeneralHelper.IsItemEffectivelyOwned(offer) &&
+                    offer.GetTagReadonly("BOUGHT_PRICE_TAG").GetInt() == price,
+                    "native scalper purchase debits the exact price and records it with the owned item");
+                check(offer.GetNegociatedValue() == offer.GetBaseValue(), "the fixed resale markup ends after buying");
+            }
+
+            void ClearCounter()
+            {
+                foreach (GameItem item in front.childItems.Concat(back.childItems).ToList()) item.Destroy();
+            }
+
+            try
+            {
+                entry.invElement = inventory;
+                frontProperty.SetValue(entry, front);
+                backProperty.SetValue(entry, back);
+                store.currentClientInstance = null;
+                store.currentNegociatedItem = null;
+                store.modData = new Dictionary<string, string>();
+                store.runStats = new RunStats();
+                store.storeReputations = new List<StoreReputation>();
+                store.storeState = PlayerStore.StoreState.OPEN;
+
+                foreach (int day in new[] { 4, 5, 9, 11, 13 })
+                    check(Queue(day).clientStack.Count == 0, "no early or non-Friday visit on day " + day);
+                StoreClient first = Visit(12);
+                check(StoreClientListDict.storeClientDict.TryGetValue(CardScalper.SellerId, out var factory) &&
+                    factory().sourceModId == ModEntry.ModId && SpriteDict.Instance.spriteDictionary.ContainsKey(first.GetSprite()) &&
+                    first.displayName == LocHelper.GetLocalizedClientName("name_scalper") &&
+                    !first.isBargainAvailable && !first.acceptRetailMarkup,
+                    "native name and portrait and persistent card-scalper factory retain fixed negotiation");
+                check(first.mainDialogue.nextDialogue == null && first.mainDialogue.choices.Count == 0,
+                    "day 12 presents the only released pack directly from the first line");
+                Present(first);
+                var slim = CheckPack(PackKind.Slim, 270);
+                var firstSingle = CheckSingle("SR");
+                string firstSingleId = firstSingle.identifier;
+                string sealedContents = JsonConvert.SerializeObject(NativeItems.ReadPack(slim));
+                int week = CardCustomerRules.SupplyWeek(12);
+                check(ModHelper.GetModDataInt(ModEntry.ModId, CardScalper.WeeklyCardKey(week), -1) ==
+                    firstSingle.GetTagReadonly(NativeItems.DefinitionTag).GetInt(), "the weekly choice persists in save data");
+                ClearCounter();
+                store.modData = new Dictionary<string, string>(store.modData);
+                Present(factory());
+                slim = CheckPack(PackKind.Slim, 270);
+                firstSingle = CheckSingle("SR");
+                check(JsonConvert.SerializeObject(NativeItems.ReadPack(slim)) == sealedContents && firstSingle.identifier == firstSingleId,
+                    "rebuilding an unsold visit keeps the exact sealed contents, seal and single");
+                Buy(slim, 270);
+                check(JsonConvert.SerializeObject(NativeItems.ReadPack(slim)) == sealedContents &&
+                    front.childItems.Count == 1 && front.childItems.Single() == firstSingle &&
+                    ModHelper.GetModDataInt(ModEntry.ModId, CardScalper.PackPurchaseWeekKey, -1) == week,
+                    "purchasing the only pack retains its sealed contents and does not restock");
+                ClearCounter();
+                store.modData = new Dictionary<string, string>(store.modData);
+                Present(factory());
+                check(front.childItems.Count == 1 && CheckSingle("SR").identifier == firstSingleId,
+                    "reconstructed same-week stock respects the saved pack sale and keeps the same unsold single");
+                var single = front.childItems.Single();
+                Buy(single, (int)single.GetNegociatedValue());
+                ClearCounter();
+                store.modData = new Dictionary<string, string>(store.modData);
+                Present(factory());
+                check(front.childItems.Count == 0 && ModHelper.GetModDataInt(ModEntry.ModId, CardScalper.SinglePurchaseWeekKey, -1) == week &&
+                    Queue(12).clientStack.Count == 0, "reconstruction cannot duplicate either sold item or requeue empty stock");
+
+                var second = Visit(19);
+                var choices = second.mainDialogue.nextDialogue?.choices.Select(choice => choice.Item1.GetDisplayName()).ToArray();
+                check(choices != null && choices.SequenceEqual(new[] { "传奇瘦包", "传奇肥包", "不看散包" }),
+                    "day 19 shows the exact two pack options and lets the player skip loose packs");
+                Present(second, "肥包");
+                var fat = CheckPack(PackKind.Fat, 1080);
+                CheckSingle("SSR");
+                Buy(fat, 1080);
+                ClearCounter();
+                Present(factory());
+                check(front.childItems.Count == 1 && !front.childItems.Any(NativeItems.IsPack),
+                    "the weekly cap is shared across Slim and Fat choices");
+                ClearCounter();
+
+                store.runID = RunWithBox(26, PackKind.Slim);
+                Present(Visit(26), "不看散包");
+                check(front.childItems.Count == 2 && !front.childItems.Any(NativeItems.IsPack),
+                    "skipping loose packs preserves the independent single and box stock");
+                CheckSingle("SR");
+                string boxContents = JsonConvert.SerializeObject(NativeItems.ReadBox(CheckBox(PackKind.Slim, 3240)));
+                ClearCounter();
+                Present(factory(), "瘦包");
+                CheckPack(PackKind.Slim, 270);
+                var slimBox = CheckBox(PackKind.Slim, 3240);
+                check(JsonConvert.SerializeObject(NativeItems.ReadBox(slimBox)) == boxContents,
+                    "changing loose pack choice keeps the identical weekly sealed box contents");
+                Buy(slimBox, 3240);
+                check(front.childItems.Count == 2 && front.childItems.Any(NativeItems.IsPack) &&
+                    ModHelper.GetModDataInt(ModEntry.ModId, CardScalper.BoxPurchaseWeekKey, -1) == CardCustomerRules.SupplyWeek(26),
+                    "box purchase is capped independently from the unbought loose pack and single");
+                ClearCounter();
+                Present(factory(), "肥包");
+                CheckPack(PackKind.Fat, 1080);
+                check(front.childItems.Count == 2 && !front.childItems.Any(NativeItems.IsBox),
+                    "a recreated seller cannot restock this week's purchased box");
+                ClearCounter();
+
+                store.runID = RunWithBox(33, PackKind.Fat);
+                Present(Visit(33), "瘦包");
+                CheckPack(PackKind.Slim, 270);
+                CheckSingle("UR");
+                Buy(CheckBox(PackKind.Fat, 6480), 6480);
+            }
+            finally
+            {
+                foreach (GameItem item in inventory.childItems.Concat(front.childItems).Concat(back.childItems).ToList())
+                    item.Destroy();
+                entry.invElement = originalInventory;
+                frontProperty.SetValue(entry, originalFront);
+                backProperty.SetValue(entry, originalBack);
+                store.storeClientManager = originalManager;
+                store.currentClientInstance = originalClient;
+                store.currentNegociatedItem = originalNegotiated;
+                store.modData = originalModData;
+                store.runStats = originalStats;
+                store.storeReputations = originalReputations;
+                store.storeState = originalState;
+                store.runID = originalRunId;
+                StoreStation.Instance.dayCounter = originalDay;
+                store.playerCash = originalCash;
+                store.wildFavor = originalFavor;
             }
         }
 

@@ -93,7 +93,7 @@ namespace ProbablyTradingCards
                 if (!Queued(manager, Profiles[(int)kind].Id)) manager.AddClient(Create(kind));
             }
 
-            if (CardCustomerRules.IsNightCollectorDay(day)) Queue(CollectorKind.Night);
+            if (CardCustomerRules.IsFriday(day)) Queue(CollectorKind.Night);
             if (day >= 6 && day % 7 == 6 && HasOwnedMatch(NativeItems.IsPack)) Queue(CollectorKind.Packs);
             if (day >= SubjectOrderStart && day % 7 == 0 &&
                 HasOwnedMatch(item => Wants(CollectorKind.Subject, SubjectOfWeek(day), item)))

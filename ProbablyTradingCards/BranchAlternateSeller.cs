@@ -36,10 +36,7 @@ namespace ProbablyTradingCards
             var data = PlayerStore.GetStoreClientData();
             if (data == null) return Array.Empty<int>();
 
-            var ownedCards = new HashSet<int>();
-            foreach (GameItem item in EmporiumEntry.Instance.GetAllOwnedItems())
-                if (TradingCardsApi.TryGetCard(item, out var card, out _) && GeneralHelper.IsItemEffectivelyOwned(item))
-                    ownedCards.Add(card.Id);
+            var ownedCards = TradingCardsApi.OwnedCardIds();
 
             var legends = CardGame.Series.ForPack(PackKind.Slim);
             if (legends.Cards.Values.Any(card => !card.IsAlternate && !ownedCards.Contains(card.Id)))

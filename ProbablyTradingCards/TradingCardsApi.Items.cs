@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace ProbablyTradingCards
 {
     public static partial class TradingCardsApi
@@ -16,6 +18,17 @@ namespace ProbablyTradingCards
             card = definition;
             condition = wear;
             return true;
+        }
+
+        internal static HashSet<int> OwnedCardIds()
+        {
+            var owned = new HashSet<int>();
+            var shop = EmporiumEntry.Instance;
+            if (shop == null) return owned;
+            foreach (GameItem item in shop.GetAllOwnedItems())
+                if (TryGetCard(item, out var card, out _) && GeneralHelper.IsItemEffectivelyOwned(item))
+                    owned.Add(card.Id);
+            return owned;
         }
     }
 }

@@ -181,7 +181,7 @@ foreach (var (day, rolls) in new[] { (1, 2), (19, 2), (20, 3), (49, 3), (50, 4),
     Check(CardCustomerRules.CollectorBaseBudget(day, 100) == 300 + 3 * day, "collector maximum base budget");
 }
 Check(!CardCustomerRules.IsDistributorDay(0), "distributor scheduled before the game begins");
-Check(!CardCustomerRules.IsNightCollectorDay(0), "night collector scheduled before the game begins");
+Check(!CardCustomerRules.IsFriday(0), "night collector scheduled before the game begins");
 Check(!CardCustomerRules.IsDockSellerDue(0), "dock seller scheduled before the game begins");
 Check(CardCustomerRules.WeeklyNightPacks == 6 && CardCustomerRules.WeeklySlimPacks == 3 &&
     CardCustomerRules.WeeklyFatPacks == 2 && CardCustomerRules.WeeklyDockPacks == 3, "weekly supply quantities");
@@ -191,7 +191,7 @@ for (int day = 1; day <= 70; day++)
 {
     Check(CardCustomerRules.IsDistributorDay(day) == new[] { 2, 9, 16, 23, 30, 37, 44, 51, 58, 65 }.Contains(day),
         "distributor schedule must start on the first Tuesday and repeat weekly");
-    Check(CardCustomerRules.IsNightCollectorDay(day) == new[] { 5, 12, 19, 26, 33, 40, 47, 54, 61, 68 }.Contains(day),
+    Check(CardCustomerRules.IsFriday(day) == new[] { 5, 12, 19, 26, 33, 40, 47, 54, 61, 68 }.Contains(day),
         "night collector schedule must start on the first Friday and repeat weekly");
     int weekday = day % 7;
     Check(CardCustomerRules.IsDockSellerDue(day) == (weekday == 0 || weekday >= 4),
@@ -214,6 +214,49 @@ Check(CardGame.Catalogue.Values.Where(card => card.IsAlternate).All(card =>
     CardGame.Catalogue[card.AlternateOf.Value].Rarity == card.Rarity), "alternate inherits rarity");
 Check(CardGame.PackValue(PackKind.Slim) == 120 && CardGame.PackValue(PackKind.Fat) == 480, "Legends pack values");
 Check(StationLegends.BoxValue(PackKind.Slim) == 1440 && StationLegends.BoxValue(PackKind.Fat) == 2880, "Legends box values");
+
+Check(Enumerable.Range(1, 40).Where(CardScalperRules.Visits).SequenceEqual(new[] { 12, 19, 26, 33, 40 }),
+    "scalper visits first Friday after Legends and every Friday thereafter");
+Check(CardScalperRules.PackKinds(8).Length == 0 &&
+    CardScalperRules.PackKinds(12).SequenceEqual(new[] { PackKind.Slim }) &&
+    CardScalperRules.PackKinds(19).SequenceEqual(new[] { PackKind.Slim, PackKind.Fat }),
+    "scalper offers only released Legends loose packs");
+Check(CardScalperRules.PackPrice(PackKind.Slim) == 270 && CardScalperRules.PackPrice(PackKind.Fat) == 1080,
+    "scalper pack quotes");
+Check(CardScalperRules.BoxPrice(PackKind.Slim) == 3240 && CardScalperRules.BoxPrice(PackKind.Fat) == 6480,
+    "scalper box quotes");
+Check(CardScalperRules.RollBox(22, new ScavengingRandom()) == null, "scalper rolls no box before release");
+for (int roll = 0; roll < 100; roll++)
+{
+    var firstBox = CardScalperRules.RollBox(23, new ScavengingRandom((100, roll)));
+    PackKind? expectedEarly = roll < 10 ? PackKind.Slim : null;
+    Check(firstBox == expectedEarly, "scalper's early box roll gives only the slim box");
+    for (int boxType = 0; boxType < 2; boxType++)
+    {
+        var random = roll < 10 ? new ScavengingRandom((100, roll), (2, boxType)) : new ScavengingRandom((100, roll));
+        PackKind? expected = roll < 10 ? (boxType == 0 ? PackKind.Slim : PackKind.Fat) : null;
+        Check(CardScalperRules.RollBox(30, random) == expected, "scalper's late box roll splits ten percent between both boxes");
+    }
+}
+Check(CardScalperRules.SingleRarity(5) == null &&
+    new[] { 12, 19, 26, 33, 40 }.Select(CardScalperRules.SingleRarity).SequenceEqual(new[] { "SR", "SSR", "SR", "UR", "SR" }),
+    "scalper single rotation starts with Legends");
+foreach (var rarity in new[] { "SR", "SSR", "UR" })
+{
+    var candidates = legends.Where(card => card.Rarity == rarity).ToArray();
+    var unowned = candidates.Last();
+    var owned = candidates.Where(card => card != unowned).Select(card => card.Id).ToHashSet();
+    var single = CardScalperRules.SelectSingle(rarity, owned, new Random(4));
+    Check(single == unowned && CardScalperRules.SinglePrice(single) == single.Value * 3,
+        "scalper offers the missing Legends base card at triple its base price");
+    owned.Add(unowned.Id);
+    Check(candidates.Contains(CardScalperRules.SelectSingle(rarity, owned, new Random(4))),
+        "scalper can offer a mint replacement when that rarity is complete");
+}
+var weeklyPack = CardGame.GeneratePack(CardScalperRules.StockRandom("test-save", 3, (int)PackKind.Fat), PackKind.Fat, true);
+var weeklyPackAfterReload = CardGame.GeneratePack(CardScalperRules.StockRandom("test-save", 3, (int)PackKind.Fat), PackKind.Fat, true);
+Check(!weeklyPack.resealed && Serialize(weeklyPack) == Serialize(weeklyPackAfterReload),
+    "weekly scalper pack is factory sealed and stable after reopening the save");
 
 foreach (var (day, expected) in new[]
 {

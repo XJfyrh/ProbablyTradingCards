@@ -14,9 +14,11 @@ namespace ProbablyTradingCards
             CardCustomers.Register();
             RareCardAppointments.Register();
             BranchAlternateSeller.Register();
+            CardScalper.Register();
             ModHook.OnGenerateCustomerEarly += CardCustomers.QueueScheduledCustomers;
             ModHook.OnGenerateCustomerEarly += RareCardAppointments.Queue;
             ModHook.OnGenerateCustomerEarly += BranchAlternateSeller.Queue;
+            ModHook.OnGenerateCustomerEarly += CardScalper.Queue;
 #if NATIVE_VALIDATION
             NativeValidation.Register();
             NativeAgentBridge.Enable();
@@ -30,6 +32,8 @@ namespace ProbablyTradingCards
             ModHook.OnGenerateCustomerEarly -= CardCustomers.QueueScheduledCustomers;
             ModHook.OnGenerateCustomerEarly -= RareCardAppointments.Queue;
             ModHook.OnGenerateCustomerEarly -= BranchAlternateSeller.Queue;
+            ModHook.OnGenerateCustomerEarly -= CardScalper.Queue;
+            CardScalper.Unregister();
             BranchAlternateSeller.Unregister();
             RareCardAppointments.Unregister();
             CardCustomers.Unregister();
