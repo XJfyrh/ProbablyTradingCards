@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
+using Newtonsoft.Json;
 
 namespace ProbablyTradingCards
 {
@@ -41,10 +42,10 @@ namespace ProbablyTradingCards
 
         internal static readonly Profile[] Profiles =
         {
-            new Profile(CollectorKind.Night, "collector", "夜班收藏客", "刚下班，想淘几张散卡。还封着的散包也行。",
-                200, 300, 3, 1, CardCustomerRules.CollectorCooldown, false, new[] { 60, 45, 30 }),
-            new Profile(CollectorKind.Packs, "pack_fan", "拆包爱好者", "今天手痒，想拆几包《空间站传奇》。我先瞧瞧封口。",
-                600, 900, 4, StationLegends.ReleaseDay, 3, false, new[] { 25, 30, 30 }),
+            new Profile(CollectorKind.Night, "collector", "夜班收藏客", "刚下班，想淘几张 C、R 或 SR 散卡，什么卡辑都行。",
+                350, 450, 3, 1, CardCustomerRules.CollectorCooldown, false, new[] { 60, 45, 30 }),
+            new Profile(CollectorKind.Packs, "pack_fan", "拆包爱好者", "想拆几包卡。什么卡辑都行，我按封口开价，这趟最多收三包。",
+                600, 900, 4, 6, 3, false, new[] { 25, 30, 30 }),
             new Profile(CollectorKind.Subject, "subject_collector", "专题收藏客", "",
                 800, 1200, 5, StationLegends.ReleaseDay, 4, false, new[] { 15, 25, 40 }),
             new Profile(CollectorKind.Prestige, "prestige_collector", "珍品收藏家", "劳驾，有普通版的 SSR 或 UR 吗？边角有点磨损也无妨。",
@@ -81,6 +82,19 @@ namespace ProbablyTradingCards
         internal static bool Queued(StoreClientManager manager, string id) =>
             manager.clientStack.Any(client => client?.identifier == id);
 
+        internal static void QueueScheduledBuyers(StoreClientManager manager, int day)
+        {
+            void Queue(CollectorKind kind)
+            {
+                if (!Queued(manager, Profiles[(int)kind].Id)) manager.AddClient(Create(kind));
+            }
+
+            if (CardCustomerRules.IsNightCollectorDay(day)) Queue(CollectorKind.Night);
+            if (day >= 6 && day % 7 == 6 &&
+                EmporiumEntry.Instance.GetAllOwnedItems().Any(NativeItems.IsPack))
+                Queue(CollectorKind.Packs);
+        }
+
         internal static int SelectionWeight(Profile profile, StoreClientManager manager, int day, int tier)
         {
             if (!profile.IsAvailable(day) || Queued(manager, profile.Id) || StoreClientManager.IsClientOnCooldown(profile.Id))
@@ -109,7 +123,19 @@ namespace ProbablyTradingCards
             int day = StoreStation.GetDayCounter();
             int bonus = RNG.GetRandomInt(0, profile.MaxBudget - profile.MinBudget);
             client.SetBudget(CardCustomerRules.CollectorBaseBudget(day, bonus, profile.MinBudget, profile.PerDay));
-            client.willAcceptItem = item => Wants(kind, subject, item);
+            if (kind == CollectorKind.Packs)
+            {
+                int remaining = 3;
+                int? Quote(GameItem item) => remaining > 0 ? SealedPackQuote(item) : null;
+                client.willAcceptItem = item => Quote(item).HasValue;
+                FixedCardOffers.Configure(client, Quote);
+                client.onItemBought = (_, __) =>
+                {
+                    if (--remaining == 0) client.SetBudget(0);
+                };
+            }
+            else
+                client.willAcceptItem = item => Wants(kind, subject, item);
             string greeting = kind == CollectorKind.Subject ?
                 "我在凑一套《空间站传奇》的" + (subject == CardSubject.Character ? "人物卡" : "道具卡") +
                 "。这趟先看看普通版，UR 改天再找。" : profile.Greeting;
@@ -120,19 +146,34 @@ namespace ProbablyTradingCards
             return client;
         }
 
+        internal static int? SealedPackQuote(GameItem item)
+        {
+            if (item == null || !NativeItems.TryGetPackKind(item.identifier, out var kind)) return null;
+            int seal;
+            try { seal = NativeItems.ReadPack(item).seal; }
+            catch (JsonException) { return null; }
+            catch (InvalidOperationException) { return null; }
+            int percent = seal == 0 ? 115 : seal == 1 ? 100 : 75;
+            return (int)Math.Min(int.MaxValue, (long)CardGame.PackValue(kind) * percent / 100);
+        }
+
         private static bool Wants(CollectorKind kind, CardSubject subject, GameItem item)
         {
             if (item == null) return false;
             switch (kind)
             {
-                case CollectorKind.Night: return NativeItems.IsPack(item) || TradingCardsApi.TryGetCard(item, out _, out _);
-                case CollectorKind.Packs: return item.identifier == NativeItems.SlimPackId || item.identifier == NativeItems.FatPackId;
                 case CollectorKind.SlimBox: return item.identifier == NativeItems.SlimBoxId;
                 case CollectorKind.FatBox: return item.identifier == NativeItems.FatBoxId;
             }
             if (!TradingCardsApi.TryGetCard(item, out var card, out _)) return false;
+            return WantsCard(kind, subject, card);
+        }
+
+        internal static bool WantsCard(CollectorKind kind, CardSubject subject, CardDefinition card)
+        {
             switch (kind)
             {
+                case CollectorKind.Night: return card.Rarity == "C" || card.Rarity == "R" || card.Rarity == "SR";
                 case CollectorKind.Subject: return card.IsLegends && !card.IsAlternate && card.Subject == subject && card.Rarity != "UR";
                 case CollectorKind.Prestige: return !card.IsAlternate && (card.Rarity == "SSR" || card.Rarity == "UR");
                 case CollectorKind.Alternate: return card.IsAlternate;

@@ -7,7 +7,13 @@ namespace ProbablyTradingCards
         public const int SellerWeight = 70;
         public const int CollectorCooldown = 3;
         public const int SellerAlbumChance = 10;
-        public const int DistributorCounterPacks = 3;
+        internal const int WeeklyDockPacks = 3;
+        internal const int WeeklyNightPacks = 6;
+        internal const int WeeklySlimPacks = 3;
+        internal const int WeeklyFatPacks = 2;
+
+        internal static int SupplyWeek(int day) => (day - 1) / 7;
+        internal static bool IsDockSellerDue(int day) => day >= 4 && (day - 1) % 7 >= 3;
 
         public static bool IsDistributorDay(int day) => day >= 2 && day % 7 == 2;
 

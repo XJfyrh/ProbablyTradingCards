@@ -87,8 +87,7 @@ namespace ProbablyTradingCards
         {
             switch (kind)
             {
-                case CollectorKind.Night: return 4;
-                case CollectorKind.Packs: return card.IsLuxury || card.IsAlternate ? 4 : 0;
+                case CollectorKind.Night: return Collectors.WantsCard(kind, card.Subject, card) ? 4 : 0;
                 case CollectorKind.Subject:
                     return card.IsLegends && !card.IsAlternate && card.Rarity != "C" && card.Rarity != "UR" ? 6 : 0;
                 case CollectorKind.Prestige: return card.IsAlternate ? 0 : card.Rarity == "SSR" ? 12 : card.Rarity == "UR" ? 20 : 0;
