@@ -3,9 +3,9 @@
   <ID>probably_trading_cards</ID>
   <Name>可能是集换卡牌</Name>
   <Author>XJfyrh</Author>
-  <ModVersion>0.5.1</ModVersion>
+  <ModVersion>0.6.0</ModVersion>
   <Description>在空间站经营集换卡。买卖原封卡包和整盒，开包、陈列稀有卡、招揽收藏客，把喜欢的卡收进集换册。包含《空间站夜话》和《空间站传奇》两辑。</Description>
-  <GameVersions><Version>0.46D</Version><Version>1.0.0</Version></GameVersions>
+  <GameVersions><Version>0.46D</Version></GameVersions>
   <Prerequisites />
   <Assemblies><Assembly>ProbablyTradingCards.dll</Assembly></Assemblies>
   <Capabilities />
