@@ -182,12 +182,22 @@ foreach (var (day, rolls) in new[] { (1, 2), (19, 2), (20, 3), (49, 3), (50, 4),
 }
 Check(!CardCustomerRules.IsDistributorDay(0), "distributor scheduled before the game begins");
 Check(!CardCustomerRules.IsNightCollectorDay(0), "night collector scheduled before the game begins");
+Check(!CardCustomerRules.IsDockSellerDue(0), "dock seller scheduled before the game begins");
+Check(CardCustomerRules.WeeklyNightPacks == 6 && CardCustomerRules.WeeklySlimPacks == 3 &&
+    CardCustomerRules.WeeklyFatPacks == 2 && CardCustomerRules.WeeklyDockPacks == 3, "weekly supply quantities");
+Check(StationLegends.FatPackDay == 16 && StationLegends.SlimBoxDay == 23 && StationLegends.FatBoxDay == 30,
+    "fat packs and the two sealed boxes release on successive Tuesdays");
 for (int day = 1; day <= 70; day++)
 {
     Check(CardCustomerRules.IsDistributorDay(day) == new[] { 2, 9, 16, 23, 30, 37, 44, 51, 58, 65 }.Contains(day),
         "distributor schedule must start on the first Tuesday and repeat weekly");
     Check(CardCustomerRules.IsNightCollectorDay(day) == new[] { 5, 12, 19, 26, 33, 40, 47, 54, 61, 68 }.Contains(day),
         "night collector schedule must start on the first Friday and repeat weekly");
+    int weekday = day % 7;
+    Check(CardCustomerRules.IsDockSellerDue(day) == (weekday == 0 || weekday >= 4),
+        "pending dock seller is due Thursday through Sunday");
+    Check(CardCustomerRules.SupplyWeek(day) == (int)Math.Floor((day - 1) / 7.0),
+        "weekly quotas reset on Monday");
 }
 Check(CardCustomerRules.SellerAlbumChance == 10, "seller album chance");
 

@@ -15,7 +15,8 @@ namespace ProbablyTradingCards
     {
         public static int ReleaseDay => CardGame.Series.ForPack(PackKind.Slim).ReleaseDay;
         public const int FatPackDay = 16;
-        public const int FatBoxDay = 23;
+        public const int SlimBoxDay = 23;
+        public const int FatBoxDay = 30;
         public const int FatPackValue = 480;
         public const int RollScale = 10_000;
         public const int AlternatePickScale = 1_000_000;

@@ -237,9 +237,10 @@ namespace ProbablyTradingCards
                 }
                 var buyer = Collectors.Create(CollectorKind.Night);
                 check(buyer.IsClientBuyingThisItem(duplicate), "buyer accepts single");
-                check(buyer.IsClientBuyingThisItem(temporary.Last(item => item.identifier == NativeItems.PackId)), "buyer accepts pack");
+                check(!buyer.IsClientBuyingThisItem(temporary.Last(item => item.identifier == NativeItems.PackId)), "night buyer only collects singles");
                 check(!buyer.IsClientBuyingThisItem(album), "buyer leaves album contents alone");
                 CheckCustomers(check, temporary, windows);
+                CheckAppointments(check, temporary, windows);
                 CheckLegends(check, temporary);
                 foreach (var series in CardGame.Series.All.Where(series => series.IsExpansion))
                     CheckExpansion(check, series, temporary, windows, viewingInventory);
@@ -322,11 +323,17 @@ namespace ProbablyTradingCards
                 check(JsonConvert.SerializeObject(data) == JsonConvert.SerializeObject(NativeItems.ReadBox(restored)),
                     "box native roundtrip preserves fixed packs");
                 check(!Collectors.Create(CollectorKind.Night).IsClientBuyingThisItem(box), "basic collector refuses box");
-                var kind = id == NativeItems.SlimBoxId ? CollectorKind.SlimBox : CollectorKind.FatBox;
-                check(Collectors.Create(kind).IsClientBuyingThisItem(box), "box specialist accepts correct SKU");
-                check(!Collectors.Create(kind == CollectorKind.SlimBox ? CollectorKind.FatBox : CollectorKind.SlimBox)
-                    .IsClientBuyingThisItem(box), "box specialist excludes other SKU");
+                var buyer = Collectors.Create(CollectorKind.Box);
+                check(buyer.IsClientBuyingThisItem(box) && CardShowcase.PackageContribution(CollectorKind.Box, box) > 0,
+                    "the merged buyer accepts or is attracted by either kind of box");
+                buyer.OnItemBought(box, (int)box.GetBaseValue());
+                check(!buyer.IsClientBuyingThisItem(box), "box buyer only purchases once");
             }
+            check(StoreClientListDict.storeClientDict[Collectors.LegacyFatBoxId]().displayName == "原封收藏客",
+                "old fat box buyer resolves to the merged buyer");
+            check(CardShowcase.Contribution(CollectorKind.Prestige, legends.Cards[rightId]) == 20 &&
+                CardShowcase.Contribution(CollectorKind.Packs, legends.Cards[rightId]) == 0,
+                "displayed UR invites a relevant buyer, not a pack buyer");
         }
 
         private static void CheckAlternateArt(Action<bool, string> check, List<GameItem> temporary,
@@ -498,6 +505,101 @@ namespace ProbablyTradingCards
             card.ActivateSlotItem();
         }
 
+        private static void CheckAppointments(Action<bool, string> check, List<GameItem> temporary, List<PixelWindow> windows)
+        {
+            var store = PlayerStore.Instance;
+            var entry = EmporiumEntry.Instance;
+            var originalCounter = entry.backInvinvElement;
+            var originalManager = store.storeClientManager;
+            var originalClient = store.currentClientInstance;
+            var originalState = store.storeState;
+            var originalData = store.modData;
+            int originalDay = StoreStation.GetDayCounter();
+            var counter = new GameGridInventory(6, 3);
+            var window = new PixelWindow();
+            window.Attach(counter);
+            windows.Add(window);
+
+            GameItem PutCard(CardDefinition card, int condition, bool owned)
+            {
+                GameItem item = DirectoryMaster.Item(NativeItems.CardId(card.Id, condition));
+                temporary.Add(item);
+                GeneralHelper.SetItemOwned(item, owned);
+                GraphUtils.TryAcceptAll(counter, item);
+                return item;
+            }
+
+            try
+            {
+                AccessTools.Property(typeof(EmporiumEntry), "backInvinvElement").SetValue(entry, counter);
+                store.storeClientManager = new StoreClientManager();
+                store.currentClientInstance = null;
+                store.modData = new Dictionary<string, string>();
+                StoreStation.Instance.dayCounter = 9;
+                store.storeState = PlayerStore.StoreState.OPEN;
+                var joe = CardGame.Catalogue.Values.Single(card => card.IsLegends && card.Art == "joe");
+                var eleanor = CardGame.Catalogue[StationLegends.EleanorRev];
+                GameItem ur = PutCard(joe, 2, true);
+                GameItem copy = PutCard(joe, 2, true);
+                GameItem alternate = PutCard(eleanor, 1, true);
+                GameItem preview = PutCard(joe, 0, false);
+                check(Enumerable.Range(0, 3).Select(grade => RareCardAppointments.Quote(joe, grade))
+                    .SequenceEqual(new[] { 336, 840, 1120 }), "appointment prices derive from wear, not negotiated value");
+                check(!RareCardAppointments.TryBook(preview), "unowned card cannot be booked");
+                check(RareCardAppointments.TryBook(ur) && !RareCardAppointments.TryBook(alternate),
+                    "only one owned rare card can be booked");
+                var first = RareCardAppointments.ReadPending();
+                check(first != null && first.ItemId == ur.GetUniqueID() && first.Price == 1120 && first.DueDay == 10,
+                    "appointment is read back with exact entity, price and opening day");
+                RareCardAppointments.Queue(store.storeClientManager);
+                check(store.storeClientManager.clientStack.Count == 0, "booking during opening waits until next opening");
+                StoreStation.Instance.dayCounter = 10;
+                RareCardAppointments.Queue(store.storeClientManager);
+                RareCardAppointments.Queue(store.storeClientManager);
+                var buyer = store.storeClientManager.clientStack.Single();
+                check(buyer.identifier == RareCardAppointments.BuyerId && buyer.IsClientBuyingThisItem(ur) &&
+                    !buyer.IsClientBuyingThisItem(copy) && !buyer.IsClientBuyingThisItem(alternate),
+                    "scheduled buyer only accepts the booked physical card");
+                store.currentClientInstance = StoreClientInstance.CreateClientInstance(buyer);
+                check(ur.GetNegociatedValue() == 1120 && store.CanSellThisItem(ur), "native sale path sees the exact booked price");
+                check(RareCardAppointments.Cancel(first) && RareCardAppointments.TryBook(alternate),
+                    "cancellation frees the slot for an alternate card");
+                buyer.OnItemBought(ur, first.Price);
+                check(RareCardAppointments.ReadPending()?.ItemId == alternate.GetUniqueID() &&
+                    !store.CanSellThisItem(ur), "stale buyer does not sell or alter a replacement booking");
+
+                store.storeClientManager.clientStack.Clear();
+                StoreStation.Instance.dayCounter = 12;
+                RareCardAppointments.Queue(store.storeClientManager);
+                var retried = store.storeClientManager.clientStack.Single();
+                store.currentClientInstance = StoreClientInstance.CreateClientInstance(retried);
+                int price = RareCardAppointments.Quote(eleanor, 1);
+                check(alternate.GetNegociatedValue() == price && store.CanSellThisItem(alternate),
+                    "unserved appointment is still eligible at the next opening");
+                retried.OnItemBought(alternate, price);
+                check(RareCardAppointments.ReadPending() == null && !store.CanSellThisItem(alternate),
+                    "successful purchase clears booking and prevents a repeat sale");
+
+                store.storeClientManager.clientStack.Clear();
+                check(RareCardAppointments.TryBook(ur), "a settled appointment leaves room for another");
+                StoreStation.Instance.dayCounter = 13;
+                RareCardAppointments.Queue(store.storeClientManager);
+                var declined = store.storeClientManager.clientStack.Single();
+                check(declined.mainDialogue.choices.Count == 0 && !declined.tryInterceptDismiss() &&
+                    RareCardAppointments.ReadPending() == null && GeneralHelper.IsItemEffectivelyOwned(ur),
+                    "ordinary dismissal safely cancels the appointment without selling the card");
+            }
+            finally
+            {
+                store.modData = originalData;
+                store.storeState = originalState;
+                store.currentClientInstance = originalClient;
+                store.storeClientManager = originalManager;
+                StoreStation.Instance.dayCounter = originalDay;
+                AccessTools.Property(typeof(EmporiumEntry), "backInvinvElement").SetValue(entry, originalCounter);
+            }
+        }
+
         private static string PlaceDistributorOrder(StoreClient client, int option)
         {
             var page = client.mainDialogue;
@@ -549,8 +651,9 @@ namespace ProbablyTradingCards
                 {
                     var pool = profile.Upper ? StoreClientList.upperLevelPool : StoreClientList.generalPool;
                     var entries = pool.entries.Where(item => item.create == profile.Factory).ToList();
-                    check(entries.Count == 1 && entries[0].tierWeights.SequenceEqual(profile.Weights),
-                        "collector registration retains the profile's three native tiers");
+                    check(profile.Kind == CollectorKind.Subject ? entries.Count == 0 :
+                        entries.Count == 1 && entries[0].tierWeights.SequenceEqual(profile.Weights),
+                        "weekly orders skip the random pool and other profiles retain their native tiers");
                 }
                 foreach (string id in new[] { CardCustomers.SellerId, CardCustomers.DistributorId }.Concat(Collectors.Profiles.Select(profile => profile.Id)))
                 {
@@ -559,23 +662,42 @@ namespace ProbablyTradingCards
                 }
                 var manager = store.storeClientManager;
                 var night = Collectors.Profiles[(int)CollectorKind.Night];
-                int[] nightWeights = { 60, 45, 30 };
+                var packs = Collectors.Profiles[(int)CollectorKind.Packs];
+                var subject = Collectors.Profiles[(int)CollectorKind.Subject];
+                foreach (string key in ModHelper.GetModDataKeys(ModEntry.ModId))
+                    if (key.StartsWith("dock_", StringComparison.Ordinal) ||
+                        key.StartsWith("issuer_purchased_", StringComparison.Ordinal))
+                        ModHelper.RemoveModData(ModEntry.ModId, key);
+
+                void ClearCounter()
+                {
+                    foreach (GameItem item in front.childItems.Concat(back.childItems).ToList()) item.Destroy();
+                }
+
+                void CheckDockSingles(int day)
+                {
+                    var singles = front.childItems.Select(item => TradingCardsApi.TryGetCard(item, out var card, out _) ? card : null)
+                        .Where(card => card != null).ToArray();
+                    check(singles.Length == 2 && singles.Any(card => card.Rarity == "C") && singles.Any(card => card.Rarity == "R") &&
+                        singles.All(card => !card.IsAlternate && !card.Series.IsExpansion && card.Series.ReleaseDay <= day),
+                        "dock offers one C and one R from available built-in series");
+                }
+
                 for (int tier = 0; tier < 3; tier++)
                 {
-                    check(Collectors.SelectionWeight(night, manager, 8, tier) == 100,
-                        "unreleased lower-level collector shares belong to the night collector");
-                    check(Collectors.Profiles.Where(profile => profile.Kind != CollectorKind.Night)
-                        .All(profile => Collectors.SelectionWeight(profile, manager, 8, tier) == 0),
-                        "unreleased collectors have no selection weight");
-                    check(Collectors.SelectionWeight(night, manager, 9, tier) == nightWeights[tier] &&
-                        Collectors.Profiles.Where(profile => !profile.Upper)
-                            .Sum(profile => Collectors.SelectionWeight(profile, manager, 9, tier)) == 100,
-                        "released lower-level collectors share 100 weight at each attractiveness tier");
+                    check(Collectors.SelectionWeight(night, manager, 5, tier) == night.Weights[tier] + packs.Weights[tier] &&
+                        Collectors.SelectionWeight(packs, manager, 5, tier) == 0,
+                        "night collector receives the locked lower-level shares before Saturday");
+                    check(Collectors.SelectionWeight(night, manager, 6, tier) == night.Weights[tier] &&
+                        Collectors.SelectionWeight(packs, manager, 6, tier) == packs.Weights[tier],
+                        "pack buyer is available from the first Saturday");
+                    check(Collectors.SelectionWeight(subject, manager, 28, tier) == 0,
+                        "weekly subject order has no random weight");
                     manager.clientTracker[night.Id] = 1;
                     check(Collectors.SelectionWeight(night, manager, 9, tier) == 0,
                         "cooldown excludes a collector before the opening update");
                     manager.UpdateTracker();
-                    check(Collectors.SelectionWeight(night, manager, 9, tier) == nightWeights[tier],
+                    check(Collectors.SelectionWeight(night, manager, 9, tier) == night.Weights[tier],
                         "native opening update makes the collector eligible for selection");
                     manager.clientStack.Add(new StoreClient { identifier = night.Id });
                     check(Collectors.SelectionWeight(night, manager, 9, tier) == 0,
@@ -586,50 +708,150 @@ namespace ProbablyTradingCards
                 StoreStation.Instance.dayCounter = 1;
                 CardCustomers.QueueScheduledCustomers(manager);
                 CardCustomers.QueueScheduledCustomers(manager);
-                check(manager.clientStack.Count == 1 && manager.clientStack[0].identifier == CardCustomers.SellerId, "one introductory seller before first supply visit");
-                manager.TrackClientVisit(manager.clientStack[0]);
+                check(manager.clientStack.Count == 1 && manager.clientStack[0].identifier == CardCustomers.SellerId,
+                    "one introductory seller before first supply visit");
+                var firstDock = manager.clientStack.Single();
+                manager.TrackClientVisit(firstDock);
+                firstDock.mainDialogue.ExecuteEndAction();
+                check(front.childItems.Count(item => item.identifier == NativeItems.PackId) == 3,
+                    "first visit offers three Night Stories packs");
+                CheckDockSingles(1);
+                ClearCounter();
                 manager.clientStack.Clear();
+                StoreStation.Instance.dayCounter = 4;
                 CardCustomers.QueueScheduledCustomers(manager);
-                check(manager.clientStack.Count == 0, "visited seller is not scheduled daily");
-                for (int day = 2; day <= 16; day++)
+                check(manager.clientStack.Count == 0, "introductory delivery counts as the first week's Thursday stock");
+
+                StoreStation.Instance.dayCounter = 5;
+                manager.clientTracker[night.Id] = 3;
+                CardCustomers.QueueScheduledCustomers(manager);
+                CardCustomers.QueueScheduledCustomers(manager);
+                check(manager.clientStack.Count == 1 && manager.clientStack.Single().identifier == night.Id,
+                    "Friday appointment survives natural cooldown and queues once");
+                manager.clientStack.Clear();
+
+                GameItem OfferPack(int seal)
                 {
-                    StoreStation.Instance.dayCounter = day;
-                    manager.UpdateTracker();
-                    CardCustomers.QueueScheduledCustomers(manager);
-                    CardCustomers.QueueScheduledCustomers(manager);
-                    string scheduledId = CardCustomerRules.IsDistributorDay(day) ? CardCustomers.DistributorId :
-                        CardCustomerRules.IsNightCollectorDay(day) ? night.Id : null;
-                    check(scheduledId == null ? manager.clientStack.Count == 0 :
-                        manager.clientStack.Count == 1 && manager.clientStack[0].identifier == scheduledId,
-                        "Tuesday distributor and Friday collector each queue once, with no other scheduled visits");
-                    manager.clientStack.Clear();
+                    var packet = NativeItems.CreateGenuinePack(PackKind.NightStories);
+                    temporary.Add(packet);
+                    var data = NativeItems.ReadPack(packet);
+                    data.seal = seal;
+                    NativeItems.SetPackData(packet, data);
+                    GeneralHelper.SetItemOwned(packet);
+                    GraphUtils.TryAcceptAll(front, packet);
+                    return packet;
                 }
+
+                var clean = OfferPack(0);
+                var wrinkled = OfferPack(1);
+                var doublePressed = OfferPack(2);
+                var glued = OfferPack(3);
+                StoreStation.Instance.dayCounter = 6;
+                CardCustomers.QueueScheduledCustomers(manager);
+                CardCustomers.QueueScheduledCustomers(manager);
+                check(manager.clientStack.Count == 1 && manager.clientStack.Single().identifier == packs.Id,
+                    "first Saturday schedules the pack buyer exactly once for an owned Night Stories pack");
+                var packBuyer = manager.clientStack.Single();
+                store.currentClientInstance = StoreClientInstance.CreateClientInstance(packBuyer);
+                check(CardSaleBatchGuard.IsAllowed(packBuyer, new[] { clean, wrinkled, doublePressed, glued }),
+                    "pack buyer allows a batch larger than three");
+                foreach (var (packet, expectedPrice) in new[] { (clean, 46), (wrinkled, 40), (doublePressed, 30), (glued, 30) })
+                    check(packBuyer.IsClientBuyingThisItem(packet) && Collectors.SealedPackQuote(packet) == expectedPrice &&
+                        packet.GetNegociatedValue() == expectedPrice, "pack buyer quotes from the visible seal tier");
+                GraphUtils.TryAcceptAll(back, glued);
+                packBuyer.OverrideBudget(30);
+                check(store.CanSellThisItem(glued), "exact remaining budget covers a pack");
+                packBuyer.OverrideBudget(29);
+                check(!store.CanSellThisItem(glued), "pack buyer requires the full quote to fit the remaining budget");
+                store.currentClientInstance = null;
+                ClearCounter();
+                manager.clientStack.Clear();
+
+                StoreStation.Instance.dayCounter = 18;
+                front.mayInventoryAddItemFunc = (item, _) => !NativeItems.IsPack(item);
+                CardCustomers.QueueScheduledCustomers(manager);
+                manager.clientStack.Single().mainDialogue.ExecuteEndAction();
+                check(front.childItems.Count == 2, "full pack shelf leaves unplaced packs pending");
+                CheckDockSingles(18);
+                front.mayInventoryAddItemFunc = null;
+                ClearCounter();
+                manager.clientStack.Clear();
+
+                StoreStation.Instance.dayCounter = 22;
+                CardCustomers.QueueScheduledCustomers(manager);
+                CardCustomers.QueueScheduledCustomers(manager);
+                check(manager.clientStack.Count == 1 && manager.clientStack.Single().identifier == CardCustomers.SellerId,
+                    "missed Thursday delivery retries once after the previous week rolls over");
+                manager.clientStack.Single().mainDialogue.ExecuteEndAction();
+                check(front.childItems.Count == 3 && front.childItems.All(NativeItems.IsPack) &&
+                    front.childItems.Any(item => item.identifier == NativeItems.SlimPackId),
+                    "partial dock delivery resumes after roll over without repeating its two singles");
+                ClearCounter();
+                manager.clientStack.Clear();
+
+                StoreStation.Instance.dayCounter = 25;
+                CardCustomers.QueueScheduledCustomers(manager);
+                manager.clientStack.Single().mainDialogue.ExecuteEndAction();
+                check(front.childItems.Count == 5 && front.childItems.Count(NativeItems.IsPack) == 3 &&
+                    front.childItems.Any(item => item.identifier == NativeItems.SlimPackId),
+                    "second weekly visit offers three packs, including at least one Legends slim pack");
+                CheckDockSingles(25);
+                ClearCounter();
+                manager.clientStack.Clear();
+
+                StoreStation.Instance.dayCounter = 28;
+                var catalogue = CardGame.Series.ForPack(PackKind.Slim).Cards.Values;
+                var theme = Collectors.SubjectOfWeek(28);
+                check(theme != Collectors.SubjectOfWeek(29) && Collectors.SubjectOrderNotice(22).Length == 0 &&
+                    Collectors.SubjectOrderNotice(23).Length > 0, "subject order rotates each week and starts on day 23");
+                var themedCard = catalogue.First(card => card.Subject == theme && card.Rarity == "SR");
+                var wrongCard = catalogue.First(card => card.Subject != theme && card.Rarity == "R");
+                GameItem ShelfCard(CardDefinition card, int condition)
+                {
+                    var item = DirectoryMaster.Item(NativeItems.CardId(card.Id, condition));
+                    temporary.Add(item);
+                    GeneralHelper.SetItemOwned(item);
+                    GraphUtils.TryAcceptAll(front, item);
+                    return item;
+                }
+                var match = ShelfCard(themedCard, 2);
+                var duplicate = ShelfCard(themedCard, 1);
+                var wrong = ShelfCard(wrongCard, 2);
+                CardCustomers.QueueScheduledCustomers(manager);
+                var orderBuyer = manager.clientStack.Single();
+                check(orderBuyer.identifier == subject.Id && orderBuyer.IsClientBuyingThisItem(match) &&
+                    !orderBuyer.IsClientBuyingThisItem(wrong), "Sunday buyer only accepts cards on the announced topic");
+                store.currentClientInstance = StoreClientInstance.CreateClientInstance(orderBuyer);
+                int orderPrice = themedCard.Value * 110 / 100;
+                check(match.GetNegociatedValue() == orderPrice &&
+                    !CardSaleBatchGuard.IsAllowed(orderBuyer, new[] { match, duplicate }),
+                    "subject order pays its premium and refuses duplicate cards in a batch");
+                orderBuyer.OnItemBought(match, orderPrice);
+                check(!orderBuyer.IsClientBuyingThisItem(duplicate), "subject order accepts a card kind only once");
+                store.currentClientInstance = null;
+                ClearCounter();
+                manager.clientStack.Clear();
+                manager.clientStack.Clear();
+
+                StoreStation.Instance.dayCounter = 16;
                 var buyer = Collectors.Create(CollectorKind.Night);
                 var minimum = new StoreClient();
-                minimum.SetBudget(CardCustomerRules.CollectorBaseBudget(16, 0));
+                minimum.SetBudget(CardCustomerRules.CollectorBaseBudget(16, 0, 350));
                 var maximum = new StoreClient();
-                maximum.SetBudget(CardCustomerRules.CollectorBaseBudget(16, 100));
-                check(buyer.GetBudget() >= minimum.GetBudget() && buyer.GetBudget() <= maximum.GetBudget(), "collector budget uses native modifiers");
-                check(buyer.clientFaction == StoreClient.FACTION_LOWER && buyer.cooldown == 3, "collector native faction and cooldown");
-                manager.TrackClientVisit(buyer);
-                check(StoreClientManager.IsClientOnCooldown(buyer), "native manager tracks collector cooldown");
-                StoreStation.Instance.dayCounter = 19;
-                CardCustomers.QueueScheduledCustomers(manager);
-                check(manager.clientStack.Count == 0, "Friday scheduling respects the collector cooldown");
-                manager.UpdateTracker();
-                manager.UpdateTracker();
-                check(StoreClientManager.IsClientOnCooldown(buyer), "collector cooldown lasts three updates");
-                manager.UpdateTracker();
-                check(!StoreClientManager.IsClientOnCooldown(buyer), "collector returns to native selection after cooldown");
+                maximum.SetBudget(CardCustomerRules.CollectorBaseBudget(16, 100, 350));
+                check(buyer.GetBudget() >= minimum.GetBudget() && buyer.GetBudget() <= maximum.GetBudget(),
+                    "night collector budget uses its new range and native modifiers");
+                check(buyer.clientFaction == StoreClient.FACTION_LOWER && buyer.cooldown == 3,
+                    "night collector keeps its native faction and natural cooldown");
 
                 StoreStation.Instance.dayCounter = 2;
                 StoreClient distributor = CardCustomers.CreateDistributor();
                 check(SpriteDict.Instance.spriteDictionary.ContainsKey(distributor.GetSprite()), "distributor portrait resolves to a native sprite");
                 check(!distributor.isBargainAvailable && !distributor.acceptRetailMarkup, "distributor uses fixed-price native trade");
                 PlaceDistributorOrder(distributor, 0);
-                check(front.childItems.Count(item => item.identifier == NativeItems.PackId) == 3, "distributor initial pack stock");
+                check(front.childItems.Count(item => item.identifier == NativeItems.PackId) == 1, "distributor puts one copy of a SKU on the counter");
                 check(front.childItems.Count(item => item.identifier == NativeItems.AlbumId) == 1, "distributor always carries one album");
-                for (int purchase = 0; purchase < 12; purchase++)
+                for (int purchase = 0; purchase < CardCustomerRules.WeeklyNightPacks; purchase++)
                 {
                     GameItem pack = front.childItems.First(item => item.identifier == NativeItems.PackId);
                     CardPack data = NativeItems.ReadPack(pack);
@@ -648,33 +870,53 @@ namespace ProbablyTradingCards
                     GameItem restoredPurchase = RoundTripItem(pack);
                     temporary.Add(restoredPurchase);
                     check(restoredPurchase.GetNegociatedValue() == CardGame.PackValue(PackKind.NightStories), "resale appraisal survives reload");
-                    check(front.childItems.Count(item => item.identifier == NativeItems.PackId) == 3, "every purchased pack replenishes exactly one pack");
+                    check(front.childItems.Count(item => item.identifier == NativeItems.PackId) ==
+                        (purchase + 1 < CardCustomerRules.WeeklyNightPacks ? 1 : 0),
+                        "issuer refills one pack at a time and stops at its weekly quota");
                     pack.Destroy();
                 }
                 GameItem album = front.childItems.Single(item => item.identifier == NativeItems.AlbumId);
                 distributor.OnItemSold(album, 24);
                 album.Destroy();
-                check(front.childItems.All(item => item.identifier == NativeItems.PackId), "album purchase does not replenish albums or packs");
-                foreach (GameItem item in front.childItems.ToList()) item.Destroy();
-                foreach (int day in new[] { 9, 16, 23 })
+                check(front.childItems.Count == 0, "album and pack quotas stop each SKU from replenishing");
+                distributor = CardCustomers.CreateDistributor();
+                PlaceDistributorOrder(distributor, 0);
+                check(front.childItems.Count == 0, "same week's quotas survive reconstruction of the issuer");
+                foreach (var (day, testedSku, quota) in new[]
+                {
+                    (9, NativeItems.SlimPackId, CardCustomerRules.WeeklySlimPacks),
+                    (16, NativeItems.FatPackId, CardCustomerRules.WeeklyFatPacks),
+                    (23, NativeItems.SlimBoxId, 1),
+                    (30, NativeItems.FatBoxId, 1)
+                })
                 {
                     StoreStation.Instance.dayCounter = day;
                     distributor = CardCustomers.CreateDistributor();
                     PlaceDistributorOrder(distributor, 0);
-                    var expected = new List<string> { NativeItems.SlimPackId, NativeItems.LegendsAlbumId, NativeItems.AlbumId };
-                    if (day >= 16) expected.AddRange(new[] { NativeItems.FatPackId, NativeItems.SlimBoxId });
-                    if (day == 23) expected.Add(NativeItems.FatBoxId);
-                    var newStock = front.childItems.Where(item => item.identifier != NativeItems.PackId).ToList();
-                    check(newStock.Select(item => item.identifier).OrderBy(id => id).SequenceEqual(expected.OrderBy(id => id)),
-                        "every released SKU physically fits on the publisher's original counter");
-                    foreach (var item in newStock.Where(item => NativeItems.IsPack(item) || NativeItems.IsBox(item)))
-                        check(item.GetNegociatedValue() == Math.Round(item.GetBaseValue() * 1.2), "publisher charges 20 percent above the sealed resale valuation");
-                    var purchase = newStock.First(item => item.identifier == (day == 23 ? NativeItems.FatBoxId : NativeItems.SlimPackId));
-                    GraphUtils.TryAcceptAll(back, purchase);
-                    distributor.OnItemSold(purchase, (int)purchase.GetNegociatedValue());
-                    check(front.childItems.Count(item => item.identifier == purchase.identifier) == 1,
-                        "publisher replenishes the same expansion SKU");
-                    foreach (GameItem item in front.childItems.Concat(back.childItems).ToList()) item.Destroy();
+                    var expected = new List<string> { NativeItems.PackId, NativeItems.SlimPackId, NativeItems.LegendsAlbumId, NativeItems.AlbumId };
+                    if (day >= 16) expected.Add(NativeItems.FatPackId);
+                    if (day >= 23) expected.Add(NativeItems.SlimBoxId);
+                    if (day >= 30) expected.Add(NativeItems.FatBoxId);
+                    check(front.childItems.Select(item => item.identifier).OrderBy(id => id).SequenceEqual(expected.OrderBy(id => id)),
+                        "all available SKUs physically fit on the publisher's original counter on day " + day);
+                    foreach (var item in front.childItems.Where(item => NativeItems.IsPack(item) || NativeItems.IsBox(item)))
+                        check(item.GetNegociatedValue() == Math.Round(item.GetBaseValue() * 1.2),
+                            "publisher charges 20 percent above the sealed resale valuation");
+                    for (int count = 0; count < quota; count++)
+                    {
+                        GameItem purchase = front.childItems.Single(item => item.identifier == testedSku);
+                        GraphUtils.TryAcceptAll(back, purchase);
+                        distributor.OnItemSold(purchase, (int)purchase.GetNegociatedValue());
+                        purchase.Destroy();
+                    }
+                    check(front.childItems.All(item => item.identifier != testedSku),
+                        "SKU stops refilling after its weekly quota on day " + day);
+                    ClearCounter();
+                    distributor = CardCustomers.CreateDistributor();
+                    PlaceDistributorOrder(distributor, 0);
+                    check(front.childItems.All(item => item.identifier != testedSku) && front.childItems.Count == expected.Count - 1,
+                        "only the sold-out SKU is absent when the issuer is recreated on day " + day);
+                    ClearCounter();
                 }
                 var expansions = CardGame.Series.All.Where(series => series.IsExpansion).ToList();
                 if (expansions.Count > 0)
