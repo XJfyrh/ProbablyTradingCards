@@ -51,7 +51,8 @@ namespace ProbablyTradingCards
             var canvas = builder.Handle.root.GetComponentInParent<Canvas>();
             float availableHeight = Screen.height / canvas.scaleFactor;
             float availableWidth = Screen.width / canvas.scaleFactor;
-            float chromeHeight = (canSwitchArt ? 152 : 112) + (canBook ? 76 : 0);
+            bool showActions = canSwitchArt || canBook;
+            float chromeHeight = showActions ? 152 : 112;
             float artHeight = Mathf.Min(720, availableHeight - chromeHeight - 40, (availableWidth - 80) * 1.5f);
             float artWidth = artHeight / 1.5f;
             builder.SetSize(artWidth + 48, artHeight + chromeHeight).Center().SetDraggable(true).SetCloseOnEscape();
@@ -72,6 +73,7 @@ namespace ProbablyTradingCards
                 wearImage.preserveAspect = true;
                 wearImage.raycastTarget = false;
             }
+            if (showActions) builder.BeginRow(8, TextAnchor.MiddleCenter);
             if (canSwitchArt)
             {
                 string SwitchLabel() => oilSelected ? "切换为蓝晒" : "切换为油画";
@@ -85,14 +87,14 @@ namespace ProbablyTradingCards
                     button.SetText(SwitchLabel());
                 });
             }
+            if (canBook) AddAppointmentButton(builder, item, card, condition);
+            if (showActions) builder.End();
             builder.AddLabel(card.Flavor, "card_flavor");
-            if (canBook) AddAppointmentControls(builder, item, card, condition);
             builder.End().Show();
         }
 
-        private static void AddAppointmentControls(CustomUIBuilder builder, GameItem item, CardDefinition card, int condition)
+        private static void AddAppointmentButton(CustomUIBuilder builder, GameItem item, CardDefinition card, int condition)
         {
-            var status = builder.AddLabel("", "card_appointment_status").Last;
             var action = builder.AddButton("", null, "card_appointment_action").Last;
             RareCardAppointments.Appointment shownBooking = null;
 
@@ -101,19 +103,19 @@ namespace ProbablyTradingCards
                 shownBooking = RareCardAppointments.ReadPending();
                 if (shownBooking == null)
                 {
-                    status.SetText($"收购价 {RareCardAppointments.Quote(card, condition)} 信用点 · 第 {RareCardAppointments.NextOpeningDay()} 天开门来访");
-                    action.SetText("预约收购").SetInteractable(RareCardAppointments.CanBook(item, card));
+                    action.SetText("预约收购").SetInteractable(RareCardAppointments.CanBook(item, card))
+                        .SetTooltip($"收购价 {RareCardAppointments.Quote(card, condition)} 信用点\n第 {RareCardAppointments.NextOpeningDay()} 天开门来访");
                 }
                 else if (shownBooking.Matches(item))
                 {
                     int day = System.Math.Max(shownBooking.DueDay, StoreStation.GetDayCounter());
-                    status.SetText($"已预约 · {shownBooking.Price} 信用点 · 第 {day} 天来访");
-                    action.SetText("取消预约").SetInteractable(true);
+                    action.SetText("取消预约").SetInteractable(true)
+                        .SetTooltip($"已约定收购价 {shownBooking.Price} 信用点\n第 {day} 天开门来访");
                 }
                 else
                 {
-                    status.SetText("已有一张卡在等收购，取消后可更换。");
-                    action.SetText("取消现有预约").SetInteractable(true);
+                    action.SetText("取消现有预约").SetInteractable(true)
+                        .SetTooltip("已有一张卡在等收购，取消后可更换。");
                 }
             }
 
