@@ -8,12 +8,21 @@ namespace ProbablyTradingCards
     {
         private static readonly ConditionalWeakTable<StoreClient, Func<GameItem, int?>> Prices =
             new ConditionalWeakTable<StoreClient, Func<GameItem, int?>>();
+        private static readonly ConditionalWeakTable<StoreClient, Func<GameItem, int?>> SellerPrices =
+            new ConditionalWeakTable<StoreClient, Func<GameItem, int?>>();
 
         internal static void Configure(StoreClient client, Func<GameItem, int?> quote)
         {
             client.isBargainAvailable = false;
             client.acceptRetailMarkup = false;
             Prices.Add(client, quote);
+        }
+
+        internal static void ConfigureSeller(StoreClient client, Func<GameItem, int?> quote)
+        {
+            client.isBargainAvailable = false;
+            client.acceptRetailMarkup = false;
+            SellerPrices.Add(client, quote);
         }
 
         private static StoreClient CurrentFixedBuyer(PlayerStore store) =>
@@ -32,10 +41,20 @@ namespace ProbablyTradingCards
         {
             private static bool Prefix(GameItem __instance, ref long __result)
             {
-                var buyer = CurrentFixedBuyer(PlayerStore.Instance);
-                if (buyer == null || !(Quote(buyer, __instance) is int price)) return true;
-                __result = price;
-                return false;
+                var client = PlayerStore.Instance?.currentClientInstance?.GetClientBlueprint();
+                if (client == null) return true;
+                if (Prices.TryGetValue(client, out _) && Quote(client, __instance) is int bid)
+                {
+                    __result = bid;
+                    return false;
+                }
+                if (SellerPrices.TryGetValue(client, out var ask) && !GeneralHelper.IsItemOwned(__instance) &&
+                    ask(__instance) is int price)
+                {
+                    __result = price;
+                    return false;
+                }
+                return true;
             }
         }
 

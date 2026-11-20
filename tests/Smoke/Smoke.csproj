@@ -7,10 +7,12 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../ProbablyTradingCards/CardGame.cs" Link="CardGame.cs" />
+    <Compile Include="../../ProbablyTradingCards/ScavengedCards.cs" Link="ScavengedCards.cs" />
     <Compile Include="../../ProbablyTradingCards/CardRegistry.cs" Link="CardRegistry.cs" />
     <Compile Include="../../ProbablyTradingCards/TradingCardsApi.cs" Link="TradingCardsApi.cs" />
     <Compile Include="../../ProbablyTradingCards/CardSeries.cs" Link="CardSeries.cs" />
     <Compile Include="../../ProbablyTradingCards/CardCustomerRules.cs" Link="CardCustomerRules.cs" />
+    <Compile Include="../../ProbablyTradingCards/CardScalperRules.cs" Link="CardScalperRules.cs" />
     <Compile Include="../../ProbablyTradingCards/StationLegends.cs" Link="StationLegends.cs" />
     <Reference Include="Newtonsoft.Json"><HintPath>$(GameDir)\Probably Stolen_Data\Managed\Newtonsoft.Json.dll</HintPath></Reference>
     <Compile Include="Program.cs" />

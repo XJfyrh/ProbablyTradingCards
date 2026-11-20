@@ -181,7 +181,7 @@ foreach (var (day, rolls) in new[] { (1, 2), (19, 2), (20, 3), (49, 3), (50, 4),
     Check(CardCustomerRules.CollectorBaseBudget(day, 100) == 300 + 3 * day, "collector maximum base budget");
 }
 Check(!CardCustomerRules.IsDistributorDay(0), "distributor scheduled before the game begins");
-Check(!CardCustomerRules.IsNightCollectorDay(0), "night collector scheduled before the game begins");
+Check(!CardCustomerRules.IsFriday(0), "night collector scheduled before the game begins");
 Check(!CardCustomerRules.IsDockSellerDue(0), "dock seller scheduled before the game begins");
 Check(CardCustomerRules.WeeklyNightPacks == 6 && CardCustomerRules.WeeklySlimPacks == 3 &&
     CardCustomerRules.WeeklyFatPacks == 2 && CardCustomerRules.WeeklyDockPacks == 3, "weekly supply quantities");
@@ -191,7 +191,7 @@ for (int day = 1; day <= 70; day++)
 {
     Check(CardCustomerRules.IsDistributorDay(day) == new[] { 2, 9, 16, 23, 30, 37, 44, 51, 58, 65 }.Contains(day),
         "distributor schedule must start on the first Tuesday and repeat weekly");
-    Check(CardCustomerRules.IsNightCollectorDay(day) == new[] { 5, 12, 19, 26, 33, 40, 47, 54, 61, 68 }.Contains(day),
+    Check(CardCustomerRules.IsFriday(day) == new[] { 5, 12, 19, 26, 33, 40, 47, 54, 61, 68 }.Contains(day),
         "night collector schedule must start on the first Friday and repeat weekly");
     int weekday = day % 7;
     Check(CardCustomerRules.IsDockSellerDue(day) == (weekday == 0 || weekday >= 4),
@@ -214,6 +214,49 @@ Check(CardGame.Catalogue.Values.Where(card => card.IsAlternate).All(card =>
     CardGame.Catalogue[card.AlternateOf.Value].Rarity == card.Rarity), "alternate inherits rarity");
 Check(CardGame.PackValue(PackKind.Slim) == 120 && CardGame.PackValue(PackKind.Fat) == 480, "Legends pack values");
 Check(StationLegends.BoxValue(PackKind.Slim) == 1440 && StationLegends.BoxValue(PackKind.Fat) == 2880, "Legends box values");
+
+Check(Enumerable.Range(1, 40).Where(CardScalperRules.Visits).SequenceEqual(new[] { 12, 19, 26, 33, 40 }),
+    "scalper visits first Friday after Legends and every Friday thereafter");
+Check(CardScalperRules.PackKinds(8).Length == 0 &&
+    CardScalperRules.PackKinds(12).SequenceEqual(new[] { PackKind.Slim }) &&
+    CardScalperRules.PackKinds(19).SequenceEqual(new[] { PackKind.Slim, PackKind.Fat }),
+    "scalper offers only released Legends loose packs");
+Check(CardScalperRules.PackPrice(PackKind.Slim) == 270 && CardScalperRules.PackPrice(PackKind.Fat) == 1080,
+    "scalper pack quotes");
+Check(CardScalperRules.BoxPrice(PackKind.Slim) == 3240 && CardScalperRules.BoxPrice(PackKind.Fat) == 6480,
+    "scalper box quotes");
+Check(CardScalperRules.RollBox(22, new ScavengingRandom()) == null, "scalper rolls no box before release");
+for (int roll = 0; roll < 100; roll++)
+{
+    var firstBox = CardScalperRules.RollBox(23, new ScavengingRandom((100, roll)));
+    PackKind? expectedEarly = roll < 10 ? PackKind.Slim : null;
+    Check(firstBox == expectedEarly, "scalper's early box roll gives only the slim box");
+    for (int boxType = 0; boxType < 2; boxType++)
+    {
+        var random = roll < 10 ? new ScavengingRandom((100, roll), (2, boxType)) : new ScavengingRandom((100, roll));
+        PackKind? expected = roll < 10 ? (boxType == 0 ? PackKind.Slim : PackKind.Fat) : null;
+        Check(CardScalperRules.RollBox(30, random) == expected, "scalper's late box roll splits ten percent between both boxes");
+    }
+}
+Check(CardScalperRules.SingleRarity(5) == null &&
+    new[] { 12, 19, 26, 33, 40 }.Select(CardScalperRules.SingleRarity).SequenceEqual(new[] { "SR", "SSR", "SR", "UR", "SR" }),
+    "scalper single rotation starts with Legends");
+foreach (var rarity in new[] { "SR", "SSR", "UR" })
+{
+    var candidates = legends.Where(card => card.Rarity == rarity).ToArray();
+    var unowned = candidates.Last();
+    var owned = candidates.Where(card => card != unowned).Select(card => card.Id).ToHashSet();
+    var single = CardScalperRules.SelectSingle(rarity, owned, new Random(4));
+    Check(single == unowned && CardScalperRules.SinglePrice(single) == single.Value * 3,
+        "scalper offers the missing Legends base card at triple its base price");
+    owned.Add(unowned.Id);
+    Check(candidates.Contains(CardScalperRules.SelectSingle(rarity, owned, new Random(4))),
+        "scalper can offer a mint replacement when that rarity is complete");
+}
+var weeklyPack = CardGame.GeneratePack(CardScalperRules.StockRandom("test-save", 3, (int)PackKind.Fat), PackKind.Fat, true);
+var weeklyPackAfterReload = CardGame.GeneratePack(CardScalperRules.StockRandom("test-save", 3, (int)PackKind.Fat), PackKind.Fat, true);
+Check(!weeklyPack.resealed && Serialize(weeklyPack) == Serialize(weeklyPackAfterReload),
+    "weekly scalper pack is factory sealed and stable after reopening the save");
 
 foreach (var (day, expected) in new[]
 {
@@ -261,13 +304,39 @@ foreach (var kind in new[] { PackKind.Slim, PackKind.Fat })
         StationLegends.ResolveAlternate(pack, hits);
         Check(pack.resolvedAlternate == expected, "alternate chance or weighted pick boundary");
         var restored = Copy(pack);
-        StationLegends.ResolveAlternate(restored, new[] { StationLegends.Waste });
+        StationLegends.ResolveAlternate(restored, new[] { StationLegends.Waste }, luck: 100);
         Check(restored.resolvedAlternate == expected, "a failed opening cannot reroll alternate on a later day");
         var contents = CardGame.OpeningContents(restored, true);
         Check(contents.Count == pack.contents.Count && contents.Last().definition ==
             (expected >= 0 ? expected : pack.contents.Last().definition), "alternate replaces the correct slot");
         Check(contents.Last().condition == pack.contents.Last().condition, "alternate inherits slot condition");
     }
+
+    var unopened = CardGame.GeneratePack(new Random(2), kind, factory: true);
+    foreach (var (luck, threshold) in new[]
+    {
+        (int.MinValue, 10), (-15, 17), (0, 20), (2, 20), (3, 21), (5, 21),
+        (15, 23), (75, 35), (95, 39), (int.MaxValue, 40)
+    })
+    {
+        unopened.alternateRoll = threshold - 1;
+        var hit = Copy(unopened);
+        StationLegends.ResolveAlternate(hit, new[] { StationLegends.Joe }, luck);
+        Check(hit.resolvedAlternate == StationLegends.Joe, "one roll below the luck threshold hits");
+
+        unopened.alternateRoll = threshold;
+        var miss = Copy(unopened);
+        StationLegends.ResolveAlternate(miss, new[] { StationLegends.Joe }, luck);
+        Check(miss.resolvedAlternate == -1, "roll equal to the luck threshold misses");
+    }
+
+    unopened.alternateRoll = 0;
+    var noCandidate = Copy(unopened);
+    StationLegends.ResolveAlternate(noCandidate, Array.Empty<int>(), luck: 100);
+    Check(noCandidate.resolvedAlternate == -1, "luck cannot open ineligible alternates");
+    unopened.resealed = true;
+    StationLegends.ResolveAlternate(unopened, hits, luck: 100);
+    Check(unopened.resolvedAlternate == -1, "luck cannot add alternates to resealed packs");
 }
 Check(!StationLegends.InWindow(8, 6, 14) && StationLegends.InWindow(9, 6, 14) &&
     StationLegends.InWindow(22, 6, 14) && !StationLegends.InWindow(23, 6, 14), "window starts no earlier than release");
@@ -349,6 +418,36 @@ var named = TradingCardsApi.RegisterSeries("other_author", "station_legends", na
 Check(named.IsExpansion && !named.Cards.Values.Any(card => card.IsLegends), "external namesake inherited built-in rules");
 Check(TradingCardsApi.UnregisterSeries("other_author", "station_legends"), "namesake removal");
 
+Check(ScavengedCards.Roll(0, new ScavengingRandom()) == null, "scavenging before Night Stories release");
+Check(ScavengedCards.Roll(9, new ScavengingRandom((10_000, 1_200))) == null, "scavenging card chance ends at 12%");
+foreach (var (day, edges) in new[]
+{
+    (8, new[] { (0, "C"), (8_049, "C"), (8_050, "R"), (9_749, "R"), (9_750, "SR"), (9_999, "SR") }),
+    (9, new[] { (0, "C"), (7_999, "C"), (8_000, "R"), (9_699, "R"), (9_700, "SR"),
+        (9_949, "SR"), (9_950, "SSR"), (9_994, "SSR"), (9_995, "UR"), (9_999, "UR") })
+})
+{
+    foreach (var (rarityRoll, rarity) in edges)
+    {
+        var expected = CardGame.Catalogue.Values.Where(card => !card.IsAlternate && card.Rarity == rarity &&
+            (card.Series == nightStories || (day == 9 && card.IsLegends))).Select(card => card.Id).ToHashSet();
+        var selected = new HashSet<int>();
+        for (int index = 0; index < expected.Count; index++)
+        {
+            var card = ScavengedCards.Roll(day, new ScavengingRandom((10_000, 1_199), (10_000, rarityRoll),
+                (expected.Count, index), (10_000, 0)));
+            Check(card != null && card.condition == 0 && selected.Add(card.definition), "scavenging pool index or drop boundary");
+        }
+        Check(expected.Count > 0 && expected.SetEquals(selected), $"day {day}: scavenging pool for {rarity}");
+    }
+}
+int earlyCommons = nightStories.Cards.Values.Count(card => card.Rarity == "C");
+foreach (var (wearRoll, condition) in new[] { (0, 0), (8_499, 0), (8_500, 1), (9_949, 1), (9_950, 2), (9_999, 2) })
+{
+    var card = ScavengedCards.Roll(1, new ScavengingRandom((10_000, 0), (10_000, 0), (earlyCommons, 0), (10_000, wearRoll)));
+    Check(card.condition == condition, "scavenging card wear boundary");
+}
+
 foreach (var series in CardGame.Series.All.Where(series => series.IsExpansion))
 {
     for (int seed = 0; seed < 32; seed++)
@@ -379,6 +478,18 @@ Console.WriteLine($"PASS {checks} checks. Registered series: {string.Join(", ", 
 sealed class WeightRollRandom(int scale, int roll) : Random
 {
     public override int Next(int maxValue) => maxValue == scale ? roll : 0;
+}
+
+sealed class ScavengingRandom(params (int Scale, int Roll)[] sequence) : Random
+{
+    private readonly Queue<(int Scale, int Roll)> rolls = new(sequence);
+
+    public override int Next(int maxValue)
+    {
+        var (scale, roll) = rolls.Dequeue();
+        if (scale != maxValue) throw new Exception($"Expected scavenging roll below {scale}, got {maxValue}.");
+        return roll;
+    }
 }
 
 sealed class ScriptedRandom : Random

@@ -3,7 +3,7 @@ namespace ProbablyTradingCards
     public sealed class ModEntry : IMod
     {
         public const string ModId = CardRegistry.CoreOwnerId;
-        internal const string Version = "0.6.1";
+        internal const string Version = "0.7.0";
         internal static ModLog Log;
 
         public void Init(ModManifest manifest) => Log = new ModLog(manifest);
@@ -13,8 +13,12 @@ namespace ProbablyTradingCards
             ModHook.OnModItemDirectoryInit += NativeItems.Register;
             CardCustomers.Register();
             RareCardAppointments.Register();
+            BranchAlternateSeller.Register();
+            CardScalper.Register();
             ModHook.OnGenerateCustomerEarly += CardCustomers.QueueScheduledCustomers;
             ModHook.OnGenerateCustomerEarly += RareCardAppointments.Queue;
+            ModHook.OnGenerateCustomerEarly += BranchAlternateSeller.Queue;
+            ModHook.OnGenerateCustomerEarly += CardScalper.Queue;
 #if NATIVE_VALIDATION
             NativeValidation.Register();
             NativeAgentBridge.Enable();
@@ -27,6 +31,10 @@ namespace ProbablyTradingCards
             ModHook.OnModItemDirectoryInit -= NativeItems.Register;
             ModHook.OnGenerateCustomerEarly -= CardCustomers.QueueScheduledCustomers;
             ModHook.OnGenerateCustomerEarly -= RareCardAppointments.Queue;
+            ModHook.OnGenerateCustomerEarly -= BranchAlternateSeller.Queue;
+            ModHook.OnGenerateCustomerEarly -= CardScalper.Queue;
+            CardScalper.Unregister();
+            BranchAlternateSeller.Unregister();
             RareCardAppointments.Unregister();
             CardCustomers.Unregister();
 #if NATIVE_VALIDATION

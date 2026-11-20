@@ -134,8 +134,7 @@ namespace ProbablyTradingCards
             var footprint = new byte[width * 3];
             for (int cell = 0; cell < footprint.Length; cell++) footprint[cell] = 1;
             item.SetShape(new GridShapeBuilder().SetData(footprint, width));
-            var data = StationLegends.GenerateBox(Random, kind);
-            item.ModifyTag(BoxDataTag, tag => tag.Enable().SetString(JsonConvert.SerializeObject(data)));
+            SetBoxData(item, StationLegends.GenerateBox(Random, kind));
             item.SetName(kind == PackKind.Slim ? "《空间站传奇》原封瘦盒" : "《空间站传奇》原封肥盒");
             item.shortDescription = DescribeBox(kind);
             item.flavorText = BoxFlavor;
@@ -161,12 +160,23 @@ namespace ProbablyTradingCards
             return item;
         }
 
-        internal static GameItem CreateGenuinePack(PackKind kind)
+        internal static GameItem CreateGenuinePack(PackKind kind, Random random = null)
         {
             GameItem item = DirectoryMaster.Item(PackItemId(kind));
-            SetPackData(item, CardGame.GeneratePack(Random, kind, true));
+            SetPackData(item, CardGame.GeneratePack(random ?? Random, kind, true));
             return item;
         }
+
+        internal static GameItem CreateGenuineBox(PackKind kind, Random random)
+        {
+            var box = StationLegends.GenerateBox(random, kind);
+            GameItem item = DirectoryMaster.Item(kind == PackKind.Slim ? SlimBoxId : FatBoxId);
+            SetBoxData(item, box);
+            return item;
+        }
+
+        private static void SetBoxData(GameItem item, CardBox box) =>
+            item.ModifyTag(BoxDataTag, tag => tag.Enable().SetString(JsonConvert.SerializeObject(box)));
 
         public static void SetPackData(GameItem item, CardPack pack) => SetPackData(item, pack, KindOf(item));
 
@@ -349,7 +359,7 @@ namespace ProbablyTradingCards
                     CardPack data = ReadPack(pack);
                     if (StationLegends.IsLegendsPack(data.kind) && !data.resolvedAlternate.HasValue)
                     {
-                        StationLegends.ResolveAlternate(data, AlternateCardProgress.Eligible());
+                        StationLegends.ResolveAlternate(data, AlternateCardProgress.Eligible(), HealthData.GetLuck());
                         // A failed placement pins this result even when the player tries again on another day.
                         SetPackData(pack, data);
                     }
