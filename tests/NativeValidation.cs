@@ -110,6 +110,7 @@ namespace ProbablyTradingCards
                 GameItem album = DirectoryMaster.Item(NativeItems.AlbumId);
                 temporary.Add(album);
                 GeneralHelper.SetItemOwned(album);
+                check(CardShowcase.BestDisplayedConditions(new[] { album }).Count == 0, "empty album supplies no showcased cards");
                 var viewingInventory = new GameGridInventory(27, 2);
                 var viewingWindow = new PixelWindow();
                 viewingWindow.Attach(viewingInventory);
@@ -119,6 +120,7 @@ namespace ProbablyTradingCards
                 var luxuryExcludingBuyer = new StoreClient();
                 luxuryExcludingBuyer.clientBuyingTagList.Add(NativeItems.CardTag);
                 luxuryExcludingBuyer.clientBlackTagList.Add(TypeHelper.LUXURY_ITEM);
+                var householdBuyer = StoreClientList.CreateSpacerClientAmenityVariety();
                 var collector = Collectors.Create(CollectorKind.Night);
                 var nightStories = CardGame.Series.ForPack(PackKind.NightStories);
                 var coreMod = ModLoader.Mods.Find(entry => entry.Manifest.ID == ModEntry.ModId);
@@ -133,10 +135,14 @@ namespace ProbablyTradingCards
                         check(card.identifier == NativeItems.CardId(definition, condition), "registered card");
                         check(card.shape.width == 1 && card.shape.height == 2, "card shape");
                         bool luxury = CardGame.Catalogue[definition].Rarity == "SR";
+                        bool household = CardGame.Catalogue[definition].Rarity == "C";
                         check(card.IsTag(TypeHelper.LUXURY_ITEM) == luxury, "SR luxury tag at every condition");
                         check(card.GetGameItemType().Contains(TypeHelper.LUXURY_ITEM) == luxury, "SR luxury type is exposed to native display and category rules");
                         check(luxuryExcludingBuyer.IsClientBuyingThisItem(card) == !luxury, "native type blacklist recognizes SR luxury cards");
                         check(card.IsTag(TypeHelper.ART) && card.IsTag(NativeItems.CardTag), "luxury preserves card and art tags");
+                        check(card.IsTag(TypeHelper.HOUSEHOLD_GOOD) == household &&
+                            card.IsGameItemType(TypeHelper.HOUSEHOLD_GOOD) == household, "only common cards are household goods");
+                        check(householdBuyer.IsClientBuyingThisItem(card) == household, "native household buyer accepts common cards");
                         check(everydayBuyer.IsRefusingLuxuryItem(card) == luxury, "native luxury buying rules recognize SR cards");
                         check(collector.IsClientBuyingThisItem(card), "collector accepts every card rarity and condition");
                         long baseValue = CardGame.Catalogue[definition].Value;
@@ -174,7 +180,7 @@ namespace ProbablyTradingCards
                 GeneralHelper.SetItemOwned(duplicate);
                 check(!GraphUtils.CanAccept(album, duplicate), "album rejects duplicate/full pocket");
 
-                GameItem restoredAlbum = RoundTripItem(album);
+                GameItem restoredAlbum = RoundTripItem(album, legacyHouseholdTypes: true);
                 temporary.Add(restoredAlbum);
                 check(GraphUtils.FindChildrenType<GameItem>(restoredAlbum).Count == 9, "native JSON album roundtrip");
                 check(!GraphUtils.CanAccept(restoredAlbum, duplicate), "restored album rules");
@@ -183,7 +189,17 @@ namespace ProbablyTradingCards
                 foreach (GameItem restored in GraphUtils.FindChildrenType<GameItem>(restoredAlbum))
                 {
                     check(restored.MayActivateSlotItem() && restored.CanActivateSlotItem(), "saved album card retains inspection");
+                    check(TradingCardsApi.TryGetCard(restored, out var card, out _) &&
+                        restored.IsGameItemType(TypeHelper.HOUSEHOLD_GOOD) == (card.Rarity == "C") &&
+                        restored.IsTag(TypeHelper.HOUSEHOLD_GOOD) == (card.Rarity == "C"),
+                        "older album cards recover the common household category on load");
                 }
+                int showcasedId = nightStories.CardIds[0];
+                var creasedCopy = DirectoryMaster.Item(NativeItems.CardId(showcasedId, 0));
+                temporary.Add(creasedCopy);
+                var showcased = CardShowcase.BestDisplayedConditions(new[] { creasedCopy, restoredAlbum });
+                check(showcased.Count == nightStories.CardIds.Count && showcased.TryGetValue(showcasedId, out int wear) && wear == 2,
+                    "display counts a restored album and a loose copy once, at the better condition");
 
                 for (int i = 0; i < 30; i++)
                 {
@@ -282,6 +298,9 @@ namespace ProbablyTradingCards
             GraphUtils.TryAcceptAll(album, leftLeaf);
             GraphUtils.TryAcceptAll(album, alternate);
             check(GraphUtils.FindChildrenType<GameItem>(album).Count == 3, "album accepts cards on both leaves and unselected spreads");
+            var showcased = CardShowcase.BestDisplayedConditions(new[] { album });
+            check(showcased.Keys.ToHashSet().SetEquals(new[] { leftId, rightId, StationLegends.EleanorScav }),
+                "showcase includes filed cards from unselected spreads, including alternates");
             check(!GraphUtils.CanAccept(album, nightCard), "Legends album excludes Night Stories cards");
             var restoredAlbum = RoundTripItem(album);
             temporary.Add(restoredAlbum);
@@ -578,8 +597,11 @@ namespace ProbablyTradingCards
                     manager.UpdateTracker();
                     CardCustomers.QueueScheduledCustomers(manager);
                     CardCustomers.QueueScheduledCustomers(manager);
-                    check(manager.clientStack.Count == (CardCustomerRules.IsDistributorDay(day) ? 1 : 0), "Tuesday-only scheduled supply with duplicate protection");
-                    check(manager.clientStack.All(client => client.identifier == CardCustomers.DistributorId), "regular collectors and sellers use the native random pool");
+                    string scheduledId = CardCustomerRules.IsDistributorDay(day) ? CardCustomers.DistributorId :
+                        CardCustomerRules.IsNightCollectorDay(day) ? night.Id : null;
+                    check(scheduledId == null ? manager.clientStack.Count == 0 :
+                        manager.clientStack.Count == 1 && manager.clientStack[0].identifier == scheduledId,
+                        "Tuesday distributor and Friday collector each queue once, with no other scheduled visits");
                     manager.clientStack.Clear();
                 }
                 var buyer = Collectors.Create(CollectorKind.Night);
@@ -591,6 +613,9 @@ namespace ProbablyTradingCards
                 check(buyer.clientFaction == StoreClient.FACTION_LOWER && buyer.cooldown == 3, "collector native faction and cooldown");
                 manager.TrackClientVisit(buyer);
                 check(StoreClientManager.IsClientOnCooldown(buyer), "native manager tracks collector cooldown");
+                StoreStation.Instance.dayCounter = 19;
+                CardCustomers.QueueScheduledCustomers(manager);
+                check(manager.clientStack.Count == 0, "Friday scheduling respects the collector cooldown");
                 manager.UpdateTracker();
                 manager.UpdateTracker();
                 check(StoreClientManager.IsClientOnCooldown(buyer), "collector cooldown lasts three updates");
@@ -609,12 +634,12 @@ namespace ProbablyTradingCards
                     GameItem pack = front.childItems.First(item => item.identifier == NativeItems.PackId);
                     CardPack data = NativeItems.ReadPack(pack);
                     check(!data.resealed && pack.GetBaseValue() == CardGame.PackValue(PackKind.NightStories), "distributor genuine supply retains normal base appraisal");
-                    check(pack.GetNegociatedValue() == 80, "native distributor price includes the premium");
+                    check(pack.GetNegociatedValue() == 48, "native distributor price includes the 20 percent premium");
                     GameItem restoredOffer = RoundTripItem(pack);
                     temporary.Add(restoredOffer);
-                    check(restoredOffer.GetNegociatedValue() == 80 && !NativeItems.ReadPack(restoredOffer).resealed, "saved offer retains price and genuine contents");
+                    check(restoredOffer.GetNegociatedValue() == 48 && !NativeItems.ReadPack(restoredOffer).resealed, "saved offer retains price and genuine contents");
                     GraphUtils.TryAcceptAll(back, pack);
-                    distributor.OnItemSold(pack, 80);
+                    distributor.OnItemSold(pack, 48);
                     // PlayerStore.OnItemBought uses this ownership change and native feature cleanup.
                     GeneralHelper.SetItemOwned(pack);
                     pack.RemoveFeatureTemporaryBuying();
@@ -643,7 +668,7 @@ namespace ProbablyTradingCards
                     check(newStock.Select(item => item.identifier).OrderBy(id => id).SequenceEqual(expected.OrderBy(id => id)),
                         "every released SKU physically fits on the publisher's original counter");
                     foreach (var item in newStock.Where(item => NativeItems.IsPack(item) || NativeItems.IsBox(item)))
-                        check(item.GetNegociatedValue() == item.GetBaseValue() * 2, "publisher charges double the sealed resale valuation");
+                        check(item.GetNegociatedValue() == Math.Round(item.GetBaseValue() * 1.2), "publisher charges 20 percent above the sealed resale valuation");
                     var purchase = newStock.First(item => item.identifier == (day == 23 ? NativeItems.FatBoxId : NativeItems.SlimPackId));
                     GraphUtils.TryAcceptAll(back, purchase);
                     distributor.OnItemSold(purchase, (int)purchase.GetNegociatedValue());
@@ -670,7 +695,7 @@ namespace ProbablyTradingCards
                     var albumOffer = front.childItems.Single(item => item.identifier == albumId);
                     var packOffer = front.childItems.Single(item => item.identifier == packId);
                     check(front.childItems.Count == 2 && !NativeItems.ReadPack(packOffer).resealed &&
-                        packOffer.GetNegociatedValue() == packOffer.GetBaseValue() * 2 &&
+                        packOffer.GetNegociatedValue() == Math.Round(packOffer.GetBaseValue() * 1.2) &&
                         albumOffer.GetNegociatedValue() == albumOffer.GetBaseValue(), "expansion order uses its own shelf and prices");
                     GraphUtils.TryAcceptAll(back, albumOffer);
                     distributor.OnItemSold(albumOffer, (int)albumOffer.GetNegociatedValue());
@@ -706,13 +731,17 @@ namespace ProbablyTradingCards
             }
         }
 
-        private static GameItem RoundTripItem(GameItem item)
+        private static GameItem RoundTripItem(GameItem item, bool legacyHouseholdTypes = false)
         {
             PlayerStore store = PlayerStore.Instance;
             store.savedItemFeatureList.Clear();
             string json = store.EncodeItem(item);
             byte[] features = ES3.Serialize(store.savedItemFeatureList);
             var saveItems = JsonUtility.FromJson<SaveState>(json).saveItems;
+            if (legacyHouseholdTypes)
+                foreach (var node in saveItems)
+                    if (node.itemTypes.Remove(TypeHelper.HOUSEHOLD_GOOD))
+                        node.itemState.dict.Remove(TypeHelper.HOUSEHOLD_GOOD);
             GameItem restored = SaveManager.DecodeNodes(saveItems);
             try
             {

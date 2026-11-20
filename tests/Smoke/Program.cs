@@ -181,9 +181,14 @@ foreach (var (day, rolls) in new[] { (1, 2), (19, 2), (20, 3), (49, 3), (50, 4),
     Check(CardCustomerRules.CollectorBaseBudget(day, 100) == 300 + 3 * day, "collector maximum base budget");
 }
 Check(!CardCustomerRules.IsDistributorDay(0), "distributor scheduled before the game begins");
+Check(!CardCustomerRules.IsNightCollectorDay(0), "night collector scheduled before the game begins");
 for (int day = 1; day <= 70; day++)
+{
     Check(CardCustomerRules.IsDistributorDay(day) == new[] { 2, 9, 16, 23, 30, 37, 44, 51, 58, 65 }.Contains(day),
         "distributor schedule must start on the first Tuesday and repeat weekly");
+    Check(CardCustomerRules.IsNightCollectorDay(day) == new[] { 5, 12, 19, 26, 33, 40, 47, 54, 61, 68 }.Contains(day),
+        "night collector schedule must start on the first Friday and repeat weekly");
+}
 Check(CardCustomerRules.SellerAlbumChance == 10, "seller album chance");
 
 var legends = CardGame.Catalogue.Values.Where(card => card.IsLegends && !card.IsAlternate).ToArray();

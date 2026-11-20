@@ -31,7 +31,8 @@ namespace ProbablyTradingCards
 
         public static void QueueScheduledCustomers(StoreClientManager manager)
         {
-            if (CardCustomerRules.IsDistributorDay(StoreStation.GetDayCounter()))
+            int day = StoreStation.GetDayCounter();
+            if (CardCustomerRules.IsDistributorDay(day))
             {
                 manager.TryAddClient(CreateDistributor());
             }
@@ -41,6 +42,9 @@ namespace ProbablyTradingCards
                 // 原版到访记录随存档保存，首次货源也适用于中途安装模组的存档。
                 manager.TryAddClient(CreateSeller());
             }
+
+            if (CardCustomerRules.IsNightCollectorDay(day))
+                manager.TryAddClient(Collectors.Create(CollectorKind.Night));
         }
 
         public static StoreClient CreateSeller()
@@ -219,7 +223,7 @@ namespace ProbablyTradingCards
             };
             premium.SetPublicDisplay("发行商加价");
             premium.SetActualDisplay("发行商加价");
-            const int percentage = 100;
+            const int percentage = 20;
             premium.SetPreExposedValueMod(percentage);
             premium.SetValueModifier(percentage);
             item.AddItemFeature(premium);

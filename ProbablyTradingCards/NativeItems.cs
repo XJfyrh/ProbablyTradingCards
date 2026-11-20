@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using HarmonyLib;
 using Newtonsoft.Json;
 
 namespace ProbablyTradingCards
@@ -204,17 +205,37 @@ namespace ProbablyTradingCards
         {
             GameItem item = ItemDirectory.CreateEmptyItem()
                 .SetShape(new GridShapeBuilder().SetData(new byte[] { 1, 1 }, 1));
+            CardDefinition card = CardGame.Catalogue[definition];
             item.SetGameItemType(TypeHelper.ART);
             item.EnableTag(TradeTag);
             item.EnableTag(CardTag);
-            if (CardGame.Catalogue[definition].IsLuxury)
+            if (card.IsLuxury)
                 item.SetGameItemType(TypeHelper.LUXURY_ITEM);
+            AddHouseholdType(item, card);
             ApplyCondition(item, definition, condition);
             CardInspection.Configure(item, definition, condition);
             // The Debug item grid reads the factory sprite before inventory validation.
             item.Validate();
             item.mayStackItemFunc = (_, __) => false;
             return item;
+        }
+
+        private static void AddHouseholdType(GameItem item, CardDefinition card)
+        {
+            if (card.Rarity == "C" && !card.IsAlternate)
+                item.SetGameItemType(TypeHelper.HOUSEHOLD_GOOD);
+        }
+
+        [HarmonyPatch(typeof(SaveManager), nameof(SaveManager.DecodeNodes))]
+        private static class RestoreCardTypes
+        {
+            private static void Postfix(List<SaveItemNode> savedItems)
+            {
+                // Saved tags and categories replace the factory defaults during decoding.
+                foreach (var node in savedItems)
+                    if (TradingCardsApi.TryGetCard(node.tempLink, out var card, out _))
+                        AddHouseholdType(node.tempLink, card);
+            }
         }
 
         private static void ApplyCondition(GameItem item, int definition, int condition)
