@@ -349,7 +349,7 @@ namespace ProbablyTradingCards
                     CardPack data = ReadPack(pack);
                     if (StationLegends.IsLegendsPack(data.kind) && !data.resolvedAlternate.HasValue)
                     {
-                        StationLegends.ResolveAlternate(data, AlternateCardProgress.Eligible());
+                        StationLegends.ResolveAlternate(data, AlternateCardProgress.Eligible(), HealthData.GetLuck());
                         // A failed placement pins this result even when the player tries again on another day.
                         SetPackData(pack, data);
                     }

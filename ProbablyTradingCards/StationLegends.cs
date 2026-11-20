@@ -20,6 +20,7 @@ namespace ProbablyTradingCards
         public const int FatPackValue = 480;
         public const int RollScale = 10_000;
         public const int AlternatePickScale = 1_000_000;
+        private const int BaseAlternateHits = 20;
         public const int EleanorScav = 49, EleanorRev = 50, Joe = 51, GeorgioFarewell = 52, GeorgioReturn = 53,
             SerpicoRev = 54, SerpicoSecurity = 55, SerpicoDepart = 56, Waste = 57, Jackson = 58, Foodie = 59;
 
@@ -134,12 +135,17 @@ namespace ProbablyTradingCards
         public static int AlternateWeight(int id) =>
             id == Joe || id == GeorgioReturn || id >= Waste ? 3 : 1;
 
-        public static void ResolveAlternate(CardPack pack, IReadOnlyList<int> eligible)
+        public static void ResolveAlternate(CardPack pack, IReadOnlyList<int> eligible) =>
+            ResolveAlternate(pack, eligible, luck: 0);
+
+        internal static void ResolveAlternate(CardPack pack, IReadOnlyList<int> eligible, int luck)
         {
             CardGame.ValidatePack(pack);
             if (!IsLegendsPack(pack.kind) || pack.resolvedAlternate.HasValue) return;
             pack.resolvedAlternate = -1;
-            if (pack.resealed || pack.alternateRoll >= 20) return;
+            double multiplier = Math.Clamp(1 + luck / 100.0, 0.5, 2.0);
+            int hitThreshold = (int)Math.Round(BaseAlternateHits * multiplier, MidpointRounding.AwayFromZero);
+            if (pack.resealed || pack.alternateRoll >= hitThreshold) return;
             int total = eligible.Sum(AlternateWeight);
             int roll = (int)((long)pack.alternatePick.Value * total / AlternatePickScale);
             foreach (int id in eligible)

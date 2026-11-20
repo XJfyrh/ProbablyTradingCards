@@ -261,13 +261,39 @@ foreach (var kind in new[] { PackKind.Slim, PackKind.Fat })
         StationLegends.ResolveAlternate(pack, hits);
         Check(pack.resolvedAlternate == expected, "alternate chance or weighted pick boundary");
         var restored = Copy(pack);
-        StationLegends.ResolveAlternate(restored, new[] { StationLegends.Waste });
+        StationLegends.ResolveAlternate(restored, new[] { StationLegends.Waste }, luck: 100);
         Check(restored.resolvedAlternate == expected, "a failed opening cannot reroll alternate on a later day");
         var contents = CardGame.OpeningContents(restored, true);
         Check(contents.Count == pack.contents.Count && contents.Last().definition ==
             (expected >= 0 ? expected : pack.contents.Last().definition), "alternate replaces the correct slot");
         Check(contents.Last().condition == pack.contents.Last().condition, "alternate inherits slot condition");
     }
+
+    var unopened = CardGame.GeneratePack(new Random(2), kind, factory: true);
+    foreach (var (luck, threshold) in new[]
+    {
+        (int.MinValue, 10), (-15, 17), (0, 20), (2, 20), (3, 21), (5, 21),
+        (15, 23), (75, 35), (95, 39), (int.MaxValue, 40)
+    })
+    {
+        unopened.alternateRoll = threshold - 1;
+        var hit = Copy(unopened);
+        StationLegends.ResolveAlternate(hit, new[] { StationLegends.Joe }, luck);
+        Check(hit.resolvedAlternate == StationLegends.Joe, "one roll below the luck threshold hits");
+
+        unopened.alternateRoll = threshold;
+        var miss = Copy(unopened);
+        StationLegends.ResolveAlternate(miss, new[] { StationLegends.Joe }, luck);
+        Check(miss.resolvedAlternate == -1, "roll equal to the luck threshold misses");
+    }
+
+    unopened.alternateRoll = 0;
+    var noCandidate = Copy(unopened);
+    StationLegends.ResolveAlternate(noCandidate, Array.Empty<int>(), luck: 100);
+    Check(noCandidate.resolvedAlternate == -1, "luck cannot open ineligible alternates");
+    unopened.resealed = true;
+    StationLegends.ResolveAlternate(unopened, hits, luck: 100);
+    Check(unopened.resolvedAlternate == -1, "luck cannot add alternates to resealed packs");
 }
 Check(!StationLegends.InWindow(8, 6, 14) && StationLegends.InWindow(9, 6, 14) &&
     StationLegends.InWindow(22, 6, 14) && !StationLegends.InWindow(23, 6, 14), "window starts no earlier than release");

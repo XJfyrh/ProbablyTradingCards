@@ -1145,6 +1145,8 @@ namespace ProbablyTradingCards
                 check(fullInventory.childItems.Count == 3, "double activation does not duplicate cards");
                 foreach (GameItem card in fullInventory.childItems.ToList()) card.Destroy();
 
+                CheckAlternateOpeningLuck(check, temporary, holding, shortInventory, fullInventory);
+
                 GameItem tool = DirectoryMaster.Item("box_cutter");
                 GameItem cutPack = DirectoryMaster.Item(NativeItems.PackId);
                 temporary.Add(tool);
@@ -1201,6 +1203,80 @@ namespace ProbablyTradingCards
             {
                 entry.invElement = originalInventory;
                 entry.backInvinvElement.mayInventoryAddItemFunc = originalBackRule;
+            }
+        }
+
+        private static void CheckAlternateOpeningLuck(Action<bool, string> check, List<GameItem> temporary,
+            GameGridInventory holding, GameGridInventory shortInventory, GameGridInventory fullInventory)
+        {
+            var entry = EmporiumEntry.Instance;
+            var store = PlayerStore.Instance;
+            var station = StoreStation.Instance;
+            var originalInventory = entry.invElement;
+            var originalHealth = store.healthData;
+            var originalClientData = store.storeClientData;
+            var originalModData = store.modData;
+            int originalDay = station.dayCounter;
+            int openingDay = StationLegends.ReleaseDay;
+            const int alternate = StationLegends.EleanorScav;
+            try
+            {
+                // The fixture keeps effective luck at zero even in a save carrying the Gambler's Coin.
+                store.healthData = new HealthData { luck = -LotteryHelper.GetCarriedLuckBonus() };
+                store.storeClientData = new StoreClientData { eleanorDriveChoice = 1, eleanorConclusionDay = openingDay };
+                store.modData = new Dictionary<string, string>();
+                var contents = CardGame.GeneratePack(new System.Random(34), PackKind.Slim, factory: true);
+                contents.alternateRoll = 34;
+                contents.alternatePick = 0;
+
+                void CheckPack(int liquidLuckDays, int expectedResult)
+                {
+                    station.dayCounter = openingDay;
+                    store.healthData.liquidLuckDaysLeft = liquidLuckDays;
+                    check(HealthData.GetLuck() == (liquidLuckDays > 0 ? 75 : 0), "effective luck includes the active Liquid Luck bonus");
+                    var pack = DirectoryMaster.Item(NativeItems.SlimPackId);
+                    temporary.Add(pack);
+                    NativeItems.SetPackData(pack, contents);
+                    GeneralHelper.SetItemOwned(pack);
+                    GraphUtils.TryAcceptAll(holding, pack);
+
+                    entry.invElement = shortInventory;
+                    check(!NativeItems.TryOpen(pack, out _) && pack.parentInventory == holding && shortInventory.childItems.Count == 0,
+                        "blocked Legend pack opening preserves the pack and rolls back partial placement");
+                    check(NativeItems.ReadPack(pack).resolvedAlternate == expectedResult,
+                        "first Legend pack attempt pins the result using current effective luck");
+                    check(!AlternateCardProgress.IsDiscovered(alternate), "failed placement does not discover the alternate");
+
+                    var restored = RoundTripItem(pack);
+                    temporary.Add(restored);
+                    pack.Destroy();
+                    GraphUtils.TryAcceptAll(holding, restored);
+                    station.dayCounter++;
+                    store.healthData.liquidLuckDaysLeft = liquidLuckDays > 0 ? 0 : 3;
+                    entry.invElement = fullInventory;
+                    check(NativeItems.TryOpen(restored, out _), "blocked Legend pack opens after saving, reloading and making space");
+                    var alternates = fullInventory.childItems.Where(item =>
+                        TradingCardsApi.TryGetCard(item, out var card, out _) && card.IsAlternate).ToList();
+                    check(fullInventory.childItems.Count == 3 && (expectedResult < 0 ? alternates.Count == 0 :
+                        alternates.Count == 1 && alternates[0].GetTagReadonly(NativeItems.DefinitionTag).GetInt() == expectedResult),
+                        "retry produces the original hit or miss after Liquid Luck changes");
+                    check(AlternateCardProgress.IsDiscovered(alternate) == (expectedResult == alternate),
+                        "only a successful alternate opening records discovery");
+                    foreach (GameItem card in fullInventory.childItems.ToList()) card.Destroy();
+                }
+
+                CheckPack(liquidLuckDays: 0, expectedResult: -1);
+                CheckPack(liquidLuckDays: 3, expectedResult: alternate);
+            }
+            finally
+            {
+                entry.invElement = originalInventory;
+                store.healthData = originalHealth;
+                store.storeClientData = originalClientData;
+                store.modData = originalModData;
+                station.dayCounter = originalDay;
+                foreach (GameItem card in shortInventory.childItems.Concat(fullInventory.childItems).ToList()) card.Destroy();
+                SeriesAlbum.RefreshOpenBooks();
             }
         }
     }
