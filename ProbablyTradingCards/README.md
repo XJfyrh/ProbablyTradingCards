@@ -4,7 +4,7 @@
 
 ## 安装与第一次进货
 
-1. 在 Steam 创意工坊订阅，或从 GitHub Releases 下载 `ProbablyTradingCards-v<版本>.zip`，解压后把 `ProbablyTradingCards` 文件夹放进游戏安装目录的 `Mods`。使用工坊版时，请将同 ID 的手动安装副本移出 `Mods`。
+1. 在 [Steam 创意工坊](https://steamcommunity.com/sharedfiles/filedetails/?id=3842861920)订阅。手动安装时，把构建得到的 `ProbablyTradingCards` 文件夹放进游戏安装目录的 `Mods`。使用工坊版时，请将同 ID 的手动安装副本移出 `Mods`。
 2. 启动游戏，在模组列表启用“可能是集换卡牌”，按提示完成审核并重启。
 3. 进店开门。第一次接待供货客时，周二来的是发行商业务员，其他日子来的是码头散货商。将鼠标悬停在卡包上看封口描述，再到柜台买下看中的货。
 

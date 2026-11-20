@@ -1,0 +1,24 @@
+name: Bug 反馈
+description: 报告安装、进货、开包、收藏或读档的问题
+body:
+  - type: input
+    id: versions
+    attributes:
+      label: 游戏版本、模组版本与安装方式
+      placeholder: 游戏 1.0.0，模组 0.5.0，Steam 创意工坊
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 复现步骤
+      description: 从问题出现前的状态写起。涉及其他模组时，请附上模组列表和加载顺序。
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: 实际结果和预期结果
+      description: 有截图或相关日志片段也可以附上。
+    validations:
+      required: true

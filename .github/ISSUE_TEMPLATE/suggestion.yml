@@ -1,0 +1,10 @@
+name: 玩法建议
+description: 建议调整现有玩法，或提出新的卡牌、卡辑和收藏体验
+body:
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: 你想改善什么体验？
+      description: 可以说说遇到的情况、希望的变化，以及为什么。
+    validations:
+      required: true
