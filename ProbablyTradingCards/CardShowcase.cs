@@ -11,7 +11,7 @@ namespace ProbablyTradingCards
     internal static class CardShowcase
     {
         private const string InvitationId = ModEntry.ModId + ".showcase_invitation";
-        private static readonly int[] Limits = { 16, 12, 18, 30, 40, 16, 12 };
+        private static readonly int[] Limits = { 16, 12, 0, 30, 40, 16 };
         private static readonly ConditionalWeakTable<StoreClientManager, DailyInvitations> Daily =
             new ConditionalWeakTable<StoreClientManager, DailyInvitations>();
         private static StoreClientManager generating;
@@ -29,7 +29,6 @@ namespace ProbablyTradingCards
             internal Collectors.Profile Profile;
             internal double Chance;
             internal int Cooldown;
-            internal double CharacterChance;
         }
 
         internal static void Register() => StoreClientListDict.storeClientDict[InvitationId] = Invite;
@@ -55,26 +54,26 @@ namespace ProbablyTradingCards
             var display = EmporiumEntry.Instance?.showcaseElement;
             if (display == null || PlayerStore.Instance.GetCurrentStoreAttractiveness() < 100) return result;
             var best = BestDisplayedConditions(display.childItems);
+            var packages = display.childItems.Where(item => NativeItems.IsPack(item) || NativeItems.IsBox(item))
+                .GroupBy(item => item.identifier).Select(group => group.First()).ToArray();
             int day = StoreStation.GetDayCounter();
             foreach (var profile in Collectors.Profiles)
             {
-                if (!profile.IsAvailable(day) || Collectors.Queued(manager, profile.Id)) continue;
-                double sum = 0, characters = 0;
+                int limit = Limits[(int)profile.Kind];
+                if (limit == 0 || !profile.IsAvailable(day) || Collectors.Queued(manager, profile.Id)) continue;
+                double sum = packages.Sum(item => PackageContribution(profile.Kind, item));
                 foreach (var pair in best)
                 {
                     var card = CardGame.Catalogue[pair.Key];
-                    double contribution = Contribution(profile.Kind, card) * CardGame.ConditionPercentages[pair.Value] / 100.0;
-                    sum += contribution;
-                    if (card.Subject == CardSubject.Character) characters += contribution;
+                    sum += Contribution(profile.Kind, card) * CardGame.ConditionPercentages[pair.Value] / 100.0;
                 }
                 if (sum <= 0) continue;
                 manager.clientTracker.TryGetValue(profile.Id, out int tracker);
                 result.Add(new Invitation
                 {
                     Profile = profile,
-                    Chance = Math.Min(sum, Limits[(int)profile.Kind]),
-                    Cooldown = Math.Max(0, tracker - (trackerAlreadyUpdated ? 0 : 1)),
-                    CharacterChance = characters / sum
+                    Chance = Math.Min(sum, limit),
+                    Cooldown = Math.Max(0, tracker - (trackerAlreadyUpdated ? 0 : 1))
                 });
             }
             double total = result.Where(row => row.Cooldown == 0).Sum(row => row.Chance);
@@ -85,18 +84,21 @@ namespace ProbablyTradingCards
 
         internal static int Contribution(CollectorKind kind, CardDefinition card)
         {
+            if (!Collectors.WantsCard(kind, card.Subject, card)) return 0;
             switch (kind)
             {
-                case CollectorKind.Night: return Collectors.WantsCard(kind, card.Subject, card) ? 4 : 0;
-                case CollectorKind.Subject:
-                    return card.IsLegends && !card.IsAlternate && card.Rarity != "C" && card.Rarity != "UR" ? 6 : 0;
-                case CollectorKind.Prestige: return card.IsAlternate ? 0 : card.Rarity == "SSR" ? 12 : card.Rarity == "UR" ? 20 : 0;
-                case CollectorKind.Alternate: return card.IsAlternate ? 30 : 0;
-                case CollectorKind.SlimBox:
-                    return !card.IsLegends ? 0 : card.IsAlternate || card.Rarity == "UR" ? 8 : card.IsLuxury ? 4 : 0;
-                case CollectorKind.FatBox: return card.IsLegends && (card.IsAlternate || card.Rarity == "UR") ? 6 : 0;
+                case CollectorKind.Night: return 4;
+                case CollectorKind.Prestige: return card.Rarity == "SSR" ? 12 : 20;
+                case CollectorKind.Alternate: return 30;
                 default: return 0;
             }
+        }
+
+        internal static int PackageContribution(CollectorKind kind, GameItem item)
+        {
+            if (kind == CollectorKind.Packs && NativeItems.IsPack(item)) return 4;
+            if (kind == CollectorKind.Box && NativeItems.IsBox(item)) return 8;
+            return 0;
         }
 
         private static StoreClient Invite()
@@ -111,9 +113,7 @@ namespace ProbablyTradingCards
             {
                 roll -= row.Chance;
                 if (roll >= 0) continue;
-                var theme = RNG.GetRandomInt(0, 999999) / 1_000_000.0 < row.CharacterChance
-                    ? CardSubject.Character : CardSubject.Item;
-                return Collectors.Create(row.Profile.Kind, theme);
+                return Collectors.Create(row.Profile.Kind);
             }
             return null;
         }

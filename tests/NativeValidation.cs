@@ -323,11 +323,17 @@ namespace ProbablyTradingCards
                 check(JsonConvert.SerializeObject(data) == JsonConvert.SerializeObject(NativeItems.ReadBox(restored)),
                     "box native roundtrip preserves fixed packs");
                 check(!Collectors.Create(CollectorKind.Night).IsClientBuyingThisItem(box), "basic collector refuses box");
-                var kind = id == NativeItems.SlimBoxId ? CollectorKind.SlimBox : CollectorKind.FatBox;
-                check(Collectors.Create(kind).IsClientBuyingThisItem(box), "box specialist accepts correct SKU");
-                check(!Collectors.Create(kind == CollectorKind.SlimBox ? CollectorKind.FatBox : CollectorKind.SlimBox)
-                    .IsClientBuyingThisItem(box), "box specialist excludes other SKU");
+                var buyer = Collectors.Create(CollectorKind.Box);
+                check(buyer.IsClientBuyingThisItem(box) && CardShowcase.PackageContribution(CollectorKind.Box, box) > 0,
+                    "the merged buyer accepts or is attracted by either kind of box");
+                buyer.OnItemBought(box, (int)box.GetBaseValue());
+                check(!buyer.IsClientBuyingThisItem(box), "box buyer only purchases once");
             }
+            check(StoreClientListDict.storeClientDict[Collectors.LegacyFatBoxId]().displayName == "原封收藏客",
+                "old fat box buyer resolves to the merged buyer");
+            check(CardShowcase.Contribution(CollectorKind.Prestige, legends.Cards[rightId]) == 20 &&
+                CardShowcase.Contribution(CollectorKind.Packs, legends.Cards[rightId]) == 0,
+                "displayed UR invites a relevant buyer, not a pack buyer");
         }
 
         private static void CheckAlternateArt(Action<bool, string> check, List<GameItem> temporary,
@@ -636,8 +642,9 @@ namespace ProbablyTradingCards
                 {
                     var pool = profile.Upper ? StoreClientList.upperLevelPool : StoreClientList.generalPool;
                     var entries = pool.entries.Where(item => item.create == profile.Factory).ToList();
-                    check(entries.Count == 1 && entries[0].tierWeights.SequenceEqual(profile.Weights),
-                        "collector registration retains the profile's three native tiers");
+                    check(profile.Kind == CollectorKind.Subject ? entries.Count == 0 :
+                        entries.Count == 1 && entries[0].tierWeights.SequenceEqual(profile.Weights),
+                        "weekly orders skip the random pool and other profiles retain their native tiers");
                 }
                 foreach (string id in new[] { CardCustomers.SellerId, CardCustomers.DistributorId }.Concat(Collectors.Profiles.Select(profile => profile.Id)))
                 {
@@ -669,15 +676,14 @@ namespace ProbablyTradingCards
 
                 for (int tier = 0; tier < 3; tier++)
                 {
-                    check(Collectors.SelectionWeight(night, manager, 5, tier) == 100 &&
+                    check(Collectors.SelectionWeight(night, manager, 5, tier) == night.Weights[tier] + packs.Weights[tier] &&
                         Collectors.SelectionWeight(packs, manager, 5, tier) == 0,
                         "night collector receives the locked lower-level shares before Saturday");
-                    check(Collectors.SelectionWeight(night, manager, 6, tier) == night.Weights[tier] + subject.Weights[tier] &&
+                    check(Collectors.SelectionWeight(night, manager, 6, tier) == night.Weights[tier] &&
                         Collectors.SelectionWeight(packs, manager, 6, tier) == packs.Weights[tier],
                         "pack buyer is available from the first Saturday");
-                    check(Collectors.Profiles.Where(profile => !profile.Upper)
-                        .Sum(profile => Collectors.SelectionWeight(profile, manager, 9, tier)) == 100,
-                        "released lower-level collectors share 100 weight at each attractiveness tier");
+                    check(Collectors.SelectionWeight(subject, manager, 28, tier) == 0,
+                        "weekly subject order has no random weight");
                     manager.clientTracker[night.Id] = 1;
                     check(Collectors.SelectionWeight(night, manager, 9, tier) == 0,
                         "cooldown excludes a collector before the opening update");
@@ -738,6 +744,9 @@ namespace ProbablyTradingCards
                     "first Saturday schedules the pack buyer exactly once for an owned Night Stories pack");
                 var packBuyer = manager.clientStack.Single();
                 store.currentClientInstance = StoreClientInstance.CreateClientInstance(packBuyer);
+                check(!CardSaleBatchGuard.IsAllowed(packBuyer, new[] { clean, wrinkled, doublePressed, glued }) &&
+                    CardSaleBatchGuard.IsAllowed(packBuyer, new[] { clean, wrinkled, doublePressed }),
+                    "pack buyer accepts a batch of three and requires adjusting a batch of four");
                 foreach (var (packet, expectedPrice) in new[] { (clean, 46), (wrinkled, 40), (doublePressed, 30), (glued, 30) })
                     check(packBuyer.IsClientBuyingThisItem(packet) && Collectors.SealedPackQuote(packet) == expectedPrice &&
                         packet.GetNegociatedValue() == expectedPrice, "pack buyer quotes from the visible seal tier");
@@ -778,6 +787,40 @@ namespace ProbablyTradingCards
                     "second weekly visit offers three packs, including at least one Legends slim pack");
                 CheckDockSingles(25);
                 ClearCounter();
+                manager.clientStack.Clear();
+
+                StoreStation.Instance.dayCounter = 28;
+                var catalogue = CardGame.Series.ForPack(PackKind.Slim).Cards.Values;
+                var theme = Collectors.SubjectOfWeek(28);
+                check(theme != Collectors.SubjectOfWeek(29) && Collectors.SubjectOrderNotice(22).Length == 0 &&
+                    Collectors.SubjectOrderNotice(23).Length > 0, "subject order rotates each week and starts on day 23");
+                var themedCard = catalogue.First(card => card.Subject == theme && card.Rarity == "SR");
+                var wrongCard = catalogue.First(card => card.Subject != theme && card.Rarity == "R");
+                GameItem ShelfCard(CardDefinition card, int condition)
+                {
+                    var item = DirectoryMaster.Item(NativeItems.CardId(card.Id, condition));
+                    temporary.Add(item);
+                    GeneralHelper.SetItemOwned(item);
+                    GraphUtils.TryAcceptAll(front, item);
+                    return item;
+                }
+                var match = ShelfCard(themedCard, 2);
+                var duplicate = ShelfCard(themedCard, 1);
+                var wrong = ShelfCard(wrongCard, 2);
+                CardCustomers.QueueScheduledCustomers(manager);
+                var orderBuyer = manager.clientStack.Single();
+                check(orderBuyer.identifier == subject.Id && orderBuyer.IsClientBuyingThisItem(match) &&
+                    !orderBuyer.IsClientBuyingThisItem(wrong), "Sunday buyer only accepts cards on the announced topic");
+                store.currentClientInstance = StoreClientInstance.CreateClientInstance(orderBuyer);
+                int orderPrice = themedCard.Value * 110 / 100;
+                check(match.GetNegociatedValue() == orderPrice &&
+                    !CardSaleBatchGuard.IsAllowed(orderBuyer, new[] { match, duplicate }),
+                    "subject order pays its premium and refuses duplicate cards in a batch");
+                orderBuyer.OnItemBought(match, orderPrice);
+                check(!orderBuyer.IsClientBuyingThisItem(duplicate), "subject order accepts a card kind only once");
+                store.currentClientInstance = null;
+                ClearCounter();
+                manager.clientStack.Clear();
                 manager.clientStack.Clear();
 
                 StoreStation.Instance.dayCounter = 16;

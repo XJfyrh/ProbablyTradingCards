@@ -182,12 +182,13 @@ namespace ProbablyTradingCards
             void OrderBuiltIns() => BeginOrder(BuiltInStock(day), weekly: true);
 
             var expansions = CardGame.Series.All.Where(series => series.IsExpansion && series.ReleaseDay <= day).ToList();
+            string orderNotice = Collectors.SubjectOrderNotice(day);
             if (expansions.Count == 0)
             {
-                client.mainDialogue.SetText(client.displayName, day < StationLegends.ReleaseDay ?
+                string greeting = day < StationLegends.ReleaseDay ?
                     "这批《空间站夜话》都是原厂封的。我每周二来一趟。" :
-                    "老板，《空间站传奇》到货了，夜话也给你带了。我每周二来。")
-                    .SetEndAction(OrderBuiltIns);
+                    "老板，《空间站传奇》到货了，夜话也给你带了。我每周二来。";
+                client.mainDialogue.SetText(client.displayName, greeting + orderNotice).SetEndAction(OrderBuiltIns);
             }
             else
             {
@@ -199,7 +200,7 @@ namespace ProbablyTradingCards
                         [NativeItems.AlbumItemId(series)] = 1
                     }, weekly: false);
                 }
-                ConfigureOrderChoices(client, day, expansions, OrderBuiltIns, SelectSeries);
+                ConfigureOrderChoices(client, day, orderNotice, expansions, OrderBuiltIns, SelectSeries);
             }
             client.onItemSold = (item, cost) =>
             {
@@ -239,10 +240,10 @@ namespace ProbablyTradingCards
             return stock;
         }
 
-        private static void ConfigureOrderChoices(StoreClient client, int day, List<CardSeries> expansions,
+        private static void ConfigureOrderChoices(StoreClient client, int day, string orderNotice, List<CardSeries> expansions,
             Action orderBuiltIns, Action<CardSeries> orderSeries)
         {
-            Dialogue page = client.mainDialogue.SetText(client.displayName, "老板，这趟要看哪批货？我给你摆上来。");
+            Dialogue page = client.mainDialogue.SetText(client.displayName, "老板，这趟要看哪批货？我给你摆上来。" + orderNotice);
             void AddOrder(string label, Action placeStock)
             {
                 var choice = new Dialogue().SetText("PLAYER", label);
