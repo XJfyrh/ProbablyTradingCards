@@ -51,7 +51,7 @@ namespace ProbablyTradingCards
             float availableHeight = Screen.height / canvas.scaleFactor;
             float availableWidth = Screen.width / canvas.scaleFactor;
             var frame = builder.Handle.frame;
-            bool showHeaderButton = canBook && frame?.closeButton != null;
+            bool showHeaderButton = canBook && frame != null && frame.closeButton != null;
             float chromeHeight = (canSwitchArt ? 152 : 112) + (canBook && !showHeaderButton ? 40 : 0);
             float artHeight = Mathf.Min(720, availableHeight - chromeHeight - 40, (availableWidth - 80) * 1.5f);
             float artWidth = artHeight / 1.5f;
@@ -107,7 +107,8 @@ namespace ProbablyTradingCards
             var header = new CustomUIBuilder(CustomUIManager.Instance, builder.Handle, builder.Handle.Rect);
             var button = AddAppointmentButton(header);
             var rect = (RectTransform)button.root.transform;
-            var layout = button.root.GetComponent<LayoutElement>() ?? button.root.AddComponent<LayoutElement>();
+            if (!button.root.TryGetComponent(out LayoutElement layout))
+                layout = button.root.AddComponent<LayoutElement>();
             layout.ignoreLayout = true;
             rect.anchorMin = rect.anchorMax = Vector2.one;
             rect.pivot = new Vector2(1f, 0.5f);

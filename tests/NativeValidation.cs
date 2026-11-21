@@ -96,7 +96,7 @@ namespace ProbablyTradingCards
 
         private static void CreateCardArtSamples()
         {
-            for (int condition = 0; condition < CardGame.Conditions.Length; condition++)
+            for (int condition = 0; condition < CardGame.Conditions.Count; condition++)
             {
                 GameItem card = DirectoryMaster.Item(NativeItems.CardId(7, condition));
                 if (!NativeItems.PlaceOwned(card)) card.Destroy();
@@ -181,7 +181,7 @@ namespace ProbablyTradingCards
                 var collector = Collectors.Create(CollectorKind.Night);
                 var nightStories = CardGame.Series.ForPack(PackKind.NightStories);
                 var coreMod = ModLoader.Mods.Find(entry => entry.Manifest.ID == ModEntry.ModId);
-                for (int condition = 0; condition < CardGame.Conditions.Length; condition++)
+                for (int condition = 0; condition < CardGame.Conditions.Count; condition++)
                     CheckFactoryCardIcon(check, coreMod, nightStories.CardIds[0], condition);
                 foreach (int definition in nightStories.CardIds)
                 {
@@ -419,7 +419,7 @@ namespace ProbablyTradingCards
             {
                 string paperKey = NativeItems.SpriteKey(id, 2);
                 check(mod.PaperSprites.ContainsKey(paperKey), "alternate card face loaded: " + paperKey);
-                for (int wear = 0; wear < CardGame.Conditions.Length; wear++)
+                for (int wear = 0; wear < CardGame.Conditions.Count; wear++)
                 {
                     string key = NativeItems.SpriteKey(id, wear);
                     check(mod.Sprites.ContainsKey(key), "alternate item sprite loaded: " + key);
@@ -431,7 +431,7 @@ namespace ProbablyTradingCards
             string oilIcon = NativeItems.SpriteKey(definition, condition, oilPainting: true);
             string blueArt = NativeItems.SpriteKey(definition, 2);
             string oilArt = NativeItems.SpriteKey(definition, 2, oilPainting: true);
-            for (int wear = 0; wear < CardGame.Conditions.Length; wear++)
+            for (int wear = 0; wear < CardGame.Conditions.Count; wear++)
                 check(mod.Sprites.ContainsKey(NativeItems.SpriteKey(definition, wear, oilPainting: true)),
                     "oil painting item sprite loaded in condition " + wear);
 
@@ -489,7 +489,7 @@ namespace ProbablyTradingCards
             {
                 string face = NativeItems.SpriteKey(id, 2);
                 check(mod.PaperSprites.ContainsKey(face), "expansion card face loaded: " + face);
-                for (int condition = 0; condition < CardGame.Conditions.Length; condition++)
+                for (int condition = 0; condition < CardGame.Conditions.Count; condition++)
                     CheckFactoryCardIcon(check, mod, id, condition);
             }
             var album = DirectoryMaster.Item(NativeItems.AlbumItemId(series));

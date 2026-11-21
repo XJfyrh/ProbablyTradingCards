@@ -51,7 +51,8 @@ namespace ProbablyTradingCards
         private static List<Invitation> Calculate(StoreClientManager manager, bool trackerAlreadyUpdated)
         {
             var result = new List<Invitation>();
-            var display = EmporiumEntry.Instance?.showcaseElement;
+            var shop = EmporiumEntry.Instance;
+            var display = shop != null ? shop.showcaseElement : null;
             if (display == null || PlayerStore.Instance.GetCurrentStoreAttractiveness() < 100) return result;
             var best = BestDisplayedConditions(display.childItems);
             var packages = display.childItems.Where(item => NativeItems.IsPack(item) || NativeItems.IsBox(item))

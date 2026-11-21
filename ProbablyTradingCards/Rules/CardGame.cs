@@ -77,12 +77,12 @@ namespace ProbablyTradingCards
         public static IReadOnlyDictionary<int, CardDefinition> Catalogue => Series.Cards;
         public static int PackValue(PackKind kind) => kind == PackKind.Fat ? StationLegends.FatPackValue : Series.ForPack(kind).PackValue;
         public const int HandTearDamagePercent = 25;
-        public static readonly int[] ConditionPercentages = { 30, 75, 100 };
-        public static readonly string[] Conditions = { "有折痕", "轻微磨损", "完好" };
-        public static readonly string[] Seals =
+        public static IReadOnlyList<int> ConditionPercentages { get; } = Array.AsReadOnly(new[] { 30, 75, 100 });
+        public static IReadOnlyList<string> Conditions { get; } = Array.AsReadOnly(new[] { "有折痕", "轻微磨损", "完好" });
+        public static IReadOnlyList<string> Seals { get; } = Array.AsReadOnly(new[]
         {
             "封边整齐，压纹连得很平。", "封边有些皱，压纹还能对上。", "有一处封边特别亮，压纹像是压了两遍。", "封口留着胶，边缘也没对齐。"
-        };
+        });
         public static CardPack GeneratePack(Random random, PackKind kind, bool factory)
         {
             if (!Series.TryForPack(kind, out var series)) throw new ArgumentOutOfRangeException(nameof(kind));
@@ -127,12 +127,12 @@ namespace ProbablyTradingCards
         {
             if (pack == null || !Series.TryForPack(pack.kind, out var series) ||
                 pack.contents == null || pack.contents.Count != series.SlotCount(pack.kind) ||
-                pack.seal < 0 || pack.seal >= Seals.Length)
+                pack.seal < 0 || pack.seal >= Seals.Count)
                 throw new InvalidOperationException("卡包内容不完整。");
             foreach (OwnedCard card in pack.contents)
             {
                 if (card == null || !series.Cards.TryGetValue(card.definition, out var definition) || definition.IsAlternate ||
-                    card.condition < 0 || card.condition >= Conditions.Length)
+                    card.condition < 0 || card.condition >= Conditions.Count)
                     throw new InvalidOperationException("卡包中有无效单卡。");
             }
             if (pack.tearRolls == null || pack.tearRolls.Count != pack.contents.Count ||

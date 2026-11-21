@@ -1,10 +1,12 @@
+#nullable enable
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 namespace ProbablyTradingCards
 {
     public static partial class TradingCardsApi
     {
-        public static bool TryGetCard(GameItem item, out CardDefinition card, out int condition)
+        public static bool TryGetCard(GameItem? item, [NotNullWhen(true)] out CardDefinition? card, out int condition)
         {
             card = null;
             condition = -1;
@@ -12,7 +14,7 @@ namespace ProbablyTradingCards
                 !item.IsTag(NativeItems.ConditionTag)) return false;
             int id = item.GetTagReadonly(NativeItems.DefinitionTag).GetInt();
             int wear = item.GetTagReadonly(NativeItems.ConditionTag).GetInt();
-            if (wear < 0 || wear >= CardGame.Conditions.Length || !Registry.Cards.TryGetValue(id, out var definition) ||
+            if (wear < 0 || wear >= CardGame.Conditions.Count || !Registry.Cards.TryGetValue(id, out var definition) ||
                 item.identifier != NativeItems.CardId(id, wear)) return false;
             card = definition;
             condition = wear;

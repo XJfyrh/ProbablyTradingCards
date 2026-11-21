@@ -14,6 +14,8 @@ python -m venv .venv
 
 脚本运行 Python 测试、贴图像素比对、Smoke 和卡辑作者工具回归，再构建正式包和两个扩展，运行扩展集成测试，最后构建游戏内验证包。需要使用其他 Python 解释器时，加上 `-PythonExe '解释器路径'`。
 
+主模组构建时会检查 Unity 对象上的 `?.` 和 `??`。这两个运算符只检查托管引用，可能继续访问游戏已销毁的对象。遇到 UNT0007 或 UNT0008 时，先用 Unity 的 `== null` 或 `!= null` 判断对象是否仍然存在。[分析器配置](../.editorconfig)
+
 ## 验证两个独立扩展
 
 ```powershell
@@ -30,7 +32,9 @@ python -m venv .venv
 dotnet run --project tests/Smoke/Smoke.csproj -c Release
 ```
 
-首次运行会从 NuGet 还原 Newtonsoft.Json。成功时控制台打印 `PASS`、检查数和已注册的系列键。GitHub Actions 在每个 PR 中运行同一命令。[测试项目](Smoke/Smoke.csproj)、[检查项](Smoke/Program.cs)
+Smoke 在 .NET 10 上运行。它先把 `ProbablyTradingCards/Rules/` 中的玩法代码编译为游戏使用的 .NET Standard 2.1，只引用 Newtonsoft.Json。规则里若用到 Unity 类型或目标框架缺少的 API，编译就会报错。正式模组将同一目录的源码编入自己的 DLL。[规则项目](Rules/Rules.csproj) · [测试项目](Smoke/Smoke.csproj)
+
+首次运行会从 NuGet 还原依赖。成功时控制台打印 `PASS`、检查数和已注册的系列键。GitHub Actions 在每个 PR 中运行同一命令。[检查项](Smoke/Program.cs)
 
 - 《空间站夜话》用 2,000 个固定种子分别生成混合货源包和原厂包，检查 JSON 往返、手撕损伤、刀具保留品相和重试结果。逐一输入 0–99 的随机值来核对出率、二封概率和三种货源的品相边界。
 - 《空间站传奇》检查四十张基础卡的分档、十一张异画、散货商的供货比例、整盒保底、内包存取，以及异画的开放窗口、命中边界和跨日重试。

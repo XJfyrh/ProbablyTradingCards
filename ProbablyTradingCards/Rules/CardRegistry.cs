@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -70,9 +71,11 @@ namespace ProbablyTradingCards
             foreach (int id in set.CardIds) cards.Remove(id);
         }
 
-        internal CardSeries Find(string ownerId, string key) => series.Find(set => set.OwnerId == ownerId && set.Key == key);
+#nullable enable
+        internal CardSeries? Find(string ownerId, string key) => series.Find(set => set.OwnerId == ownerId && set.Key == key);
         public CardSeries ForPack(PackKind kind) => packs[kind];
-        internal bool TryForPack(PackKind kind, out CardSeries set) => packs.TryGetValue(kind, out set);
+        internal bool TryForPack(PackKind kind, [NotNullWhen(true)] out CardSeries? set) => packs.TryGetValue(kind, out set);
+#nullable restore
     }
 
     internal sealed class SeriesManifest

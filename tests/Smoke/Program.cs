@@ -63,7 +63,7 @@ for (int seed = 0; seed < 2000; seed++)
     resealedStates.Add(pack.resealed);
 }
 Check(definitions.SetEquals(nightStories.CardIds), "seeded packs do not exercise the entire Night Stories catalogue");
-Check(conditions.Count == CardGame.Conditions.Length && seals.Count == CardGame.Seals.Length && resealedStates.Count == 2, "seeded packs omit a condition, seal or resealed state");
+Check(conditions.Count == CardGame.Conditions.Count && seals.Count == CardGame.Seals.Count && resealedStates.Count == 2, "seeded packs omit a condition, seal or resealed state");
 
 CardPack boundary = CardGame.GeneratePack(new Random(9), PackKind.NightStories, factory: false);
 boundary.contents.ForEach(card => card.condition = 2);
@@ -82,9 +82,9 @@ var invalidCases = new (string name, Action<CardPack> mutate)[]
     ("negative definition", pack => pack.contents[0].definition = -1),
     ("wrong series", pack => pack.contents[0].definition = StationLegends.EleanorRev),
     ("negative condition", pack => pack.contents[0].condition = -1),
-    ("unknown condition", pack => pack.contents[0].condition = CardGame.Conditions.Length),
+    ("unknown condition", pack => pack.contents[0].condition = CardGame.Conditions.Count),
     ("negative seal", pack => pack.seal = -1),
-    ("unknown seal", pack => pack.seal = CardGame.Seals.Length),
+    ("unknown seal", pack => pack.seal = CardGame.Seals.Count),
     ("missing tear rolls", pack => pack.tearRolls = null),
     ("empty tear rolls", pack => pack.tearRolls.Clear()),
     ("short tear rolls", pack => pack.tearRolls.RemoveAt(0)),
@@ -160,7 +160,18 @@ for (int roll = 0; roll < 100; roll++)
 Check(CardGame.Series.ForPack(PackKind.NightStories).CardIds.Select(id => CardGame.Catalogue[id].Value)
     .SequenceEqual(new[] { 4, 6, 8, 10, 40, 60, 80, 240, 360 }), "card base prices");
 Check(CardGame.ConditionPercentages.SequenceEqual(new[] { 30, 75, 100 }), "condition price percentages");
+Check(RejectsItemReplacement(CardGame.ConditionPercentages), "extensions cannot replace condition price percentages");
+Check(RejectsItemReplacement(CardGame.Conditions), "extensions cannot replace condition names");
+Check(RejectsItemReplacement(CardGame.Seals), "extensions cannot replace pack seal descriptions");
 Check(CardGame.PackValue(PackKind.NightStories) == 40, "pack base price");
+
+static bool RejectsItemReplacement<T>(IReadOnlyList<T> values)
+{
+    if (values is not IList<T> list) return true;
+    try { list[0] = list[0]; }
+    catch (NotSupportedException) { return true; }
+    return false;
+}
 
 foreach (var (day, rolls) in new[] { (1, 2), (19, 2), (20, 3), (49, 3), (50, 4), (100, 4) })
 {
@@ -344,7 +355,7 @@ Check(!StationLegends.InWindow(8, 6, 14) && StationLegends.InWindow(9, 6, 14) &&
     StationLegends.InWindow(22, 6, 14) && !StationLegends.InWindow(23, 6, 14), "window starts no earlier than release");
 Check(StationLegends.InWindow(36, 23, 14) && !StationLegends.InWindow(37, 23, 14) &&
     !StationLegends.InWindow(23, -1, 14), "story window includes first day and excludes end");
-using var exampleReader = new StreamReader(typeof(CardGame).Assembly.GetManifestResourceStream("examples/dock_demo.json"));
+using var exampleReader = new StreamReader(typeof(Program).Assembly.GetManifestResourceStream("examples/dock_demo.json"));
 string exampleJson = exampleReader.ReadToEnd();
 var sample = JObject.Parse(exampleJson);
 CardRegistry MakeRegistry(IEnumerable<(string key, string json)> inputs)

@@ -7,7 +7,7 @@
     <TradingCardsDll Condition="'$(TradingCardsDll)' == ''">$(MSBuildThisFileDirectory)..\..\ProbablyTradingCards\dist\ProbablyTradingCards\ProbablyTradingCards.dll</TradingCardsDll>
   </PropertyGroup>
   <ItemGroup Condition="'$(IdentityOnly)' == 'true'">
-    <ProjectReference Include="../../tests/Smoke/Smoke.csproj" />
+    <ProjectReference Include="../../tests/Rules/Rules.csproj" />
   </ItemGroup>
   <ItemGroup Condition="'$(IdentityOnly)' != 'true'">
     <Reference Include="ProbablyTradingCards"><HintPath>$(TradingCardsDll)</HintPath></Reference>
