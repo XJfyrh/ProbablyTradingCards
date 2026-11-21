@@ -13,7 +13,7 @@
 - 撕包、落牌和入册使用 Kenney 的 `cards-pack-open-2.ogg`、`card-place-1.ogg` 和 `card-slide-4.ogg`。[Casino Audio](https://kenney.nl/assets/casino-audio)
 - R 揭牌提示和展示柜放置使用 Kenney 的 `pluck_002.ogg` 和 `glass_003.ogg`。[Interface Sounds](https://kenney.nl/assets/interface-sounds)
 - 割包使用 Sadiquecat 录制的美工刀切割纸板音效。[Small utility knife and carboard cutting (mke600)](https://freesound.org/people/Sadiquecat/sounds/815423/)
-- SR 揭牌提示使用 Qvantor 的玻璃和弦音效。[Gem Sparkle](https://freesound.org/people/Qvantor/sounds/878614/)
+- SR 揭牌提示由 Versilian Studios 的实录圆号与定音鼓采样重新编配。[VSCO 2 Community Edition](https://versilian-studios.com/vsco-community/)
 - 翻页使用 OwlStorm（Ashe Kirk）的翻页录音。[Page Turn (1)](https://freesound.org/people/OwlStorm/sounds/151220/)
 
 ## 授权范围
