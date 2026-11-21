@@ -15,6 +15,7 @@
   </PropertyGroup>
   <ItemGroup Condition="'$(NativeValidation)' == 'true'">
     <Compile Include="..\tests\NativeValidation.cs" Link="NativeValidation.cs" />
+    <Compile Include="..\tests\NativeBountyChecks.cs" Link="NativeBountyChecks.cs" />
     <Compile Include="..\tests\ValidationCleanup.cs" Link="ValidationCleanup.cs" />
     <Compile Include="..\tests\NativeAgentBridge.cs" Link="NativeAgentBridge.cs" />
     <Reference Include="Assembly-CSharp-firstpass"><HintPath>$(ManagedDir)\Assembly-CSharp-firstpass.dll</HintPath><Private>false</Private></Reference>
