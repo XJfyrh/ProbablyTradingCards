@@ -45,7 +45,8 @@ namespace ProbablyTradingCards
             NativeAgentBridge.Disable();
             ModHelper.RemoveDebugFunctions(ModId);
 #endif
-            CustomUIManager.Instance?.CloseWindow(CardInspection.WindowId);
+            var ui = CustomUIManager.Instance;
+            if (ui != null) ui.CloseWindow(CardInspection.WindowId);
         }
     }
 }

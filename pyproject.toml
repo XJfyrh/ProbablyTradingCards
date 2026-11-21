@@ -1,0 +1,5 @@
+[dependency-groups]
+lint = ["ruff==0.16.2"]
+
+[tool.ruff.lint]
+select = ["E9", "F", "PLE"]

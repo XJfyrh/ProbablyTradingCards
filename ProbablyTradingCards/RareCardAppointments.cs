@@ -90,7 +90,8 @@ namespace ProbablyTradingCards
             if (booking == null || StoreStation.GetDayCounter() < booking.DueDay ||
                 manager.clientStack.Any(client => client?.identifier == BuyerId)) return;
 
-            if (EmporiumEntry.Instance?.GetAllOwnedItems().Any(booking.Matches) != true)
+            var shop = EmporiumEntry.Instance;
+            if (shop == null || !shop.GetAllOwnedItems().Any(booking.Matches))
             {
                 Cancel(booking);
                 return;

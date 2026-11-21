@@ -108,7 +108,7 @@ namespace ProbablyTradingCards
             directory.Add(FatBoxId, () => CreateBox(PackKind.Fat, "legends_fat_box"));
             foreach (int definition in CardGame.Catalogue.Keys)
             {
-                for (int condition = 0; condition < CardGame.Conditions.Length; condition++)
+                for (int condition = 0; condition < CardGame.Conditions.Count; condition++)
                 {
                     int wear = condition;
                     directory.Add(CardId(definition, wear), () => CreateCard(definition, wear));

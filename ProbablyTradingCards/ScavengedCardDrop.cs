@@ -27,8 +27,12 @@ namespace ProbablyTradingCards
             return code;
         }
 
-        private static void DropAfterScavenge() =>
-            TryDropBonus(StoreStation.GetDayCounter(), DropRandom, EmporiumEntry.Instance?.afterhourInventory);
+        private static void DropAfterScavenge()
+        {
+            var shop = EmporiumEntry.Instance;
+            if (shop != null)
+                TryDropBonus(StoreStation.GetDayCounter(), DropRandom, shop.afterhourInventory);
+        }
 
         internal static bool TryDropBonus(int day, Random random, GameGridInventory ground)
         {

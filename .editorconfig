@@ -1,0 +1,3 @@
+[*.cs]
+dotnet_diagnostic.UNT0007.severity = error
+dotnet_diagnostic.UNT0008.severity = error

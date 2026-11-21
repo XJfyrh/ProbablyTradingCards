@@ -11,6 +11,17 @@
 
 每个 PR 都会自动测试玩法与存档规则、卡辑作者工具和 Python 脚本。检查还会对照发布标签核对卡辑标识，并把重新导出的主模组贴图与提交的成品逐张比较。模组构建、扩展集成和实机试玩需要本机游戏。[GitHub Actions](https://github.com/XJfyrh/ProbablyTradingCards/actions/workflows/checks.yml)
 
+## 检查脚本与工作流
+
+修改 Python 脚本后，用 Ruff 检查未定义名称、未使用的局部变量等错误。在仓库根目录给已有的测试虚拟环境安装 `lint` 依赖组，然后运行检查。[创建测试虚拟环境](tests/README.md#构建模组并运行离线测试)
+
+```powershell
+./.venv/Scripts/python.exe -m pip install --group lint
+./.venv/Scripts/python.exe -m ruff check .
+```
+
+修改 GitHub Actions 工作流后，从仓库根目录运行 `actionlint` 检查触发条件、表达式和 action 输入名。CI 使用 1.7.12 版。[actionlint 发行包](https://github.com/rhysd/actionlint/releases/tag/v1.7.12)
+
 ## 维护代码注释
 
 在仓库根目录用 PowerShell 运行。以下命令使用 Python 创建虚拟环境并安装解析依赖，CI 使用 Python 3.14。已有 `.venv` 时从第二行开始。

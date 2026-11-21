@@ -100,8 +100,11 @@ namespace ProbablyTradingCards
                 Queue(CollectorKind.Subject);
         }
 
-        private static bool HasOwnedMatch(Func<GameItem, bool> accepts) =>
-            EmporiumEntry.Instance?.GetAllOwnedItems().Any(item => GeneralHelper.IsItemEffectivelyOwned(item) && accepts(item)) == true;
+        private static bool HasOwnedMatch(Func<GameItem, bool> accepts)
+        {
+            var shop = EmporiumEntry.Instance;
+            return shop != null && shop.GetAllOwnedItems().Any(item => GeneralHelper.IsItemEffectivelyOwned(item) && accepts(item));
+        }
 
         internal static CardSubject SubjectOfWeek(int day) =>
             CardCustomerRules.SupplyWeek(day) % 2 == 1 ? CardSubject.Character : CardSubject.Item;

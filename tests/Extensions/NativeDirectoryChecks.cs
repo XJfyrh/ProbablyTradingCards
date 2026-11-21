@@ -48,7 +48,7 @@ internal static class NativeDirectoryChecks
             foreach (int id in series.CardIds)
             {
                 var card = CardGame.Catalogue[id];
-                for (int condition = 0; condition < CardGame.Conditions.Length; condition++)
+                for (int condition = 0; condition < CardGame.Conditions.Count; condition++)
                 {
                     string identifier = NativeItems.CardId(id, condition);
                     Check(identifier == series.OwnerId + ".card_" + id + "_" + condition &&
@@ -71,7 +71,7 @@ internal static class NativeDirectoryChecks
         Check(!NativeItems.IsPack(stale) && !directory.Has(stale.identifier) && !directory.Has(prefix + "_album"),
             "rebuild excludes the disabled provider's pack and album");
         foreach (int id in series.CardIds)
-            for (int condition = 0; condition < CardGame.Conditions.Length; condition++)
+            for (int condition = 0; condition < CardGame.Conditions.Count; condition++)
                 Check(!directory.Has(series.OwnerId + ".card_" + id + "_" + condition), "rebuild excludes disabled singles");
     }
 

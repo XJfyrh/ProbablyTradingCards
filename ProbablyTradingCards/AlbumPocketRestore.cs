@@ -42,7 +42,7 @@ namespace ProbablyTradingCards
                 var nodeIndices = InventoryNodeIndices(album);
                 var slots = new Dictionary<string, int>(StringComparer.Ordinal);
                 foreach (var (id, pocket) in pockets)
-                    for (int wear = 0; wear < CardGame.Conditions.Length; wear++)
+                    for (int wear = 0; wear < CardGame.Conditions.Count; wear++)
                         slots.Add(NativeItems.CardId(id, wear), nodeIndices[pocket]);
 
                 foreach (var parent in parents[albumId])

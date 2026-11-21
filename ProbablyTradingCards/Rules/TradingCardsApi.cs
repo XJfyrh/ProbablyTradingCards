@@ -1,5 +1,7 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -49,7 +51,7 @@ namespace ProbablyTradingCards
 
         public static bool UnregisterSeries(string ownerId, string seriesKey) => Registry.Unregister(ownerId, seriesKey);
 
-        public static bool TryGetSeries(string ownerId, string seriesKey, out CardSeries series)
+        public static bool TryGetSeries(string ownerId, string seriesKey, [NotNullWhen(true)] out CardSeries? series)
         {
             series = Registry.Find(ownerId, seriesKey);
             return series != null;
