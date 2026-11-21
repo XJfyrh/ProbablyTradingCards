@@ -24,7 +24,7 @@ python -m venv .venv
 dotnet build ProbablyTradingCards/ProbablyTradingCards.csproj -c Release
 ```
 
-正式包在 `ProbablyTradingCards/dist/ProbablyTradingCards/`。也可以通过 `-p:GameDir` 和 `-p:PythonExe` 单独指定构建环境。运行 `./tests/verify.ps1` 执行整套离线检查。[测试与试玩](tests/README.md)
+正式包在 `ProbablyTradingCards/dist/ProbablyTradingCards/`。也可以通过 `-p:GameDir` 和 `-p:PythonExe` 单独指定构建环境。要运行整套离线检查，先按测试说明补装注释解析依赖，再运行 `./tests/verify.ps1`。[构建模组并运行离线测试](tests/README.md#构建模组并运行离线测试)
 
 ## 制作扩展
 

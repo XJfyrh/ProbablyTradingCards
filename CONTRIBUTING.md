@@ -13,11 +13,27 @@
 
 ## 维护代码注释
 
-从仓库根目录运行以下命令，检查未提交改动中的注释。检查已提交的分支改动时，将 `--base` 设为分支与目标分支的共同祖先。CI 对 PR 的合并结果使用目标分支提交作基线，对推送使用推送前的提交。
+在仓库根目录用 PowerShell 运行。以下命令使用 Python 创建虚拟环境并安装解析依赖，CI 使用 Python 3.14。已有 `.venv` 时从第二行开始。
 
 ```powershell
-python -m pip install -r scripts/requirements-comments.txt
-python scripts/check_comments.py
+python -m venv .venv
+./.venv/Scripts/python.exe -m pip install -r scripts/requirements-comments.txt
 ```
 
-检查会指出新增或改写的说明性注释及其行号。基线中已有的注释可以分批处理。解释设计取舍时，将触发条件、原因和验证入口写入实现决策文档。审查发现用注释掩盖的实现缺口时，为该缺口建 Issue。盘点全库可运行 `python scripts/check_comments.py --list`，再按仓库技能逐条分类。[实现决策](docs/development/实现决策.md) · [delete-comment 技能](.agents/skills/delete-comment/SKILL.md)
+检查尚未提交的改动时，默认与 `HEAD` 比较，未被 Git 忽略的新文件也会纳入检查。
+
+```powershell
+./.venv/Scripts/python.exe scripts/check_comments.py
+```
+
+检查准备合入 `main` 的整个分支时，先更新本地的 `origin/main` 引用，再与共同祖先比较。这样也会检查分支上已经提交的注释。
+
+```powershell
+git fetch origin main
+$base = git merge-base HEAD origin/main
+./.venv/Scripts/python.exe scripts/check_comments.py --base $base
+```
+
+通过时输出 `PASS: no new or edited prose comments.`。发现新增或改写的普通注释、C# XML 文档注释时，检查会打印文件、行号和原文，以状态码 1 退出。CI 检查 PR 的合并结果时，以目标分支提交为基线。已有注释可以分批处理。
+
+盘点全库使用 `./.venv/Scripts/python.exe scripts/check_comments.py --list`。逐条审查时，删除赘述和过时说明，将设计理由写入实现决策文档，为注释掩盖的实现或测试缺口建立或关联 Issue。[实现决策](docs/development/实现决策.md) · [delete-comment 技能](.agents/skills/delete-comment/SKILL.md)

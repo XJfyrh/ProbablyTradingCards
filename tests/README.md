@@ -4,9 +4,10 @@
 
 ## 构建模组并运行离线测试
 
-在 Windows 上准备 PowerShell 7、.NET 10 SDK 和 Python。首次运行时，给测试使用的 Python 安装图像与注释解析依赖。下面使用仓库的虚拟环境，将游戏路径换成本机安装目录。如果已经设置 `PROBABLY_STOLEN_GAME_DIR`，可以省略 `-GameDir`。[构建环境](../README.md#构建模组)
+在 Windows 上准备 PowerShell 7、.NET 10 SDK 和 Python（CI 使用 3.14）。以下命令在仓库虚拟环境中安装图像和注释解析依赖。已有 `.venv` 时，从安装依赖那一行开始。将示例游戏路径换成本机安装目录，已设置 `PROBABLY_STOLEN_GAME_DIR` 时可省略 `-GameDir`。
 
 ```powershell
+python -m venv .venv
 ./.venv/Scripts/python.exe -m pip install -r scripts/requirements.txt -r scripts/requirements-comments.txt
 ./tests/verify.ps1 -GameDir 'C:\Games\Probably Stolen'
 ```
