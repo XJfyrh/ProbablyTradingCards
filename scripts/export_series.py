@@ -141,7 +141,6 @@ def check_built_ins(series, paper, items):
     for card in night_manifest["cards"]:
         expect_card(expected, paper, items, f"card_{card['id']}", "_wear_", separate_faces=True)
     legend_keys = read_art_keys(legends, legends_manifest["cards"])
-    # NativeItems.SpriteKey uses an extra illustration for Eleanor's switchable alternate.
     for key in [*legend_keys, "eleanor-rev-oil"]:
         expect_card(expected, paper, items, f"card_legends_{key}", "_wear_")
     check_textures(expected)
@@ -210,7 +209,6 @@ def main():
                 print(f"{folder.name}: verified {len(art_keys)} card faces, icons and packaging")
             return
         textures.mkdir(parents=True, exist_ok=True)
-        # Publish the complete set only after every input and generated texture has been checked.
         with TemporaryDirectory(dir=textures) as scratch:
             paper = Path(scratch) / paper_dir
             items = Path(scratch) / "Items"

@@ -41,7 +41,6 @@ namespace ProbablyTradingCards
                     if (cards.TryGetValue(id, out var conflict))
                         throw new InvalidOperationException($"卡牌 {set.Cards[id].Name} 的 id {id} 已由 {conflict.Series.OwnerId}/{conflict.Series.Key} 的 {conflict.Name} 使用。");
 
-                // 验证整辑后才登记，错误清单不会留下部分卡牌或包装。
                 packs.Add(set.PackKind, set);
                 if (set.PackKind == PackKind.Slim) packs.Add(PackKind.Fat, set);
                 foreach (int id in set.CardIds) cards.Add(id, set.Cards[id]);
@@ -65,7 +64,6 @@ namespace ProbablyTradingCards
 
         internal void Remove(CardSeries set)
         {
-            // A previously disposed pack must not remove another registration of the same keys.
             if (!series.Remove(set)) return;
             packs.Remove(set.PackKind);
             if (set.PackKind == PackKind.Slim) packs.Remove(PackKind.Fat);

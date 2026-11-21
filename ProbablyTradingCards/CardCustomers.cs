@@ -71,7 +71,6 @@ namespace ProbablyTradingCards
                 displayName = "码头散货商",
                 spriteName = SpriteDict.GetRandomScavSpriteName(),
                 clientIntent = StoreClient.ClientIntent.SELL,
-                // 预约先于普通客流生成。原版当天会先递减冷却，再抽随机顾客。
                 cooldown = weekly ? 2 : 1,
                 CanReturnAsBuyer = false
             };
@@ -256,7 +255,6 @@ namespace ProbablyTradingCards
                 .Select(group => group.Key).ToHashSet();
             foreach (var series in expansions)
             {
-                // 原版对话气泡数量固定，每页放两个货单选项，第三个用于翻页。
                 if (page.choices.Count == 2)
                 {
                     var turn = new Dialogue().SetText("PLAYER", "翻到下一页。");
@@ -279,7 +277,6 @@ namespace ProbablyTradingCards
             GameItem item = NativeItems.TryGetPackKind(id, out PackKind kind) ?
                 NativeItems.CreateGenuinePack(kind) : DirectoryMaster.Item(id);
             if (item.IsTag(NativeItems.AlbumTag)) return item;
-            // 原版在成交后清除 TemporaryBuying，进货溢价随本次交易结束。
             var premium = new ItemFeature(ItemFeature.FeatureType.TemporaryBuying)
             {
                 identifier = DistributorPremiumId,

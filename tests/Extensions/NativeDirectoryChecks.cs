@@ -7,7 +7,6 @@ using ProbablyTradingCards;
 
 internal static class NativeDirectoryChecks
 {
-    // Unity normally initializes this dictionary in Awake. The real Add/Has methods can run without a scene.
     internal static ModItemDirectory CreateDirectory()
     {
         var directory = (ModItemDirectory)RuntimeHelpers.GetUninitializedObject(typeof(ModItemDirectory));
@@ -23,8 +22,6 @@ internal static class NativeDirectoryChecks
         var peers = CardGame.Series.All.Where(series => series.Key == dock.Key).ToArray();
         Check(peers.Length >= 2, "two installed authors use the same series key");
         var identifiers = new HashSet<string>();
-        // This is the card factory's normal sprite binding. Setting the DOCUMENT tag up front avoids
-        // entering Unity's shape and rendering validation on the headless item.
         var configure = typeof(NativeItems).Assembly.GetType("ProbablyTradingCards.CardInspection", true)!
             .GetMethod("Configure", BindingFlags.Static | BindingFlags.NonPublic)!
             .CreateDelegate<Action<GameItem, int, int>>();

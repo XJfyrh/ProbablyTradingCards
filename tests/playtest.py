@@ -43,7 +43,6 @@ def release_identity(game_dir, release):
     version = (manifest.findtext("ModVersion") or "").strip()
     if (manifest.findtext("ID") or "").strip() != CORE or not version:
         raise ValueError("正式包清单缺少正确的模组 ID 或版本。")
-    # The loader audits ModFingerprint.Combined, not its separate texture/folder hash.
     loader_input = f"{expected['manifest.xml']}\n{MOD}.dll|{expected[f'{MOD}.dll']}"
     loader_hash = hashlib.sha256(loader_input.encode("utf-8")).hexdigest()
     index = json.dumps(expected, sort_keys=True).encode("utf-8")

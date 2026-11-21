@@ -13,7 +13,6 @@ import playtest
 MANIFEST = (b"<Manifest><ID>probably_trading_cards</ID><ModVersion>0.7.0</ModVersion>"
             b"<Assemblies><Assembly>ProbablyTradingCards.dll</Assembly></Assemblies></Manifest>\n")
 DLL = b"release assembly fixture\n"
-# ModFingerprint.Compute's Combined for these exact manifest and assembly bytes.
 LOADER_HASH = "06f67bb900326d602d8781638b2ff9eb5f2719366882980f6c1d46f2b5f02fbe"
 
 

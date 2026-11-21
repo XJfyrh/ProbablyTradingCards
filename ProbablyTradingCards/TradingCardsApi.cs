@@ -6,7 +6,6 @@ using System.Reflection;
 
 namespace ProbablyTradingCards
 {
-    /// <summary>Card content shared by the base mod and its add-ons. Register on the game's main thread in IMod.OnEnable.</summary>
     public static partial class TradingCardsApi
     {
         internal static readonly CardRegistry Registry = new CardRegistry();
@@ -19,7 +18,6 @@ namespace ProbablyTradingCards
                 throw new InvalidOperationException("缺少内置卡辑清单。");
         }
 
-        /// <summary>Register the assembly's card-series/{key}/series.json resources as a unit. Dispose on disable.</summary>
         public static IDisposable RegisterEmbeddedSeries(string ownerId, Assembly assembly)
         {
             if (assembly == null) throw new ArgumentNullException(nameof(assembly));

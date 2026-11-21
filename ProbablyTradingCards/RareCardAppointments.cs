@@ -133,7 +133,6 @@ namespace ProbablyTradingCards
                 }
             };
 
-            // 玩家送客视为拒绝，关店时原版直接送客则会保留下次开门的预约。
             client.tryInterceptDismiss = () =>
             {
                 Cancel(booking);
@@ -157,7 +156,6 @@ namespace ProbablyTradingCards
             {
                 if (item == null || GeneralHelper.IsItemOwned(item)) return;
                 var booking = ReadPending();
-                // 原版只对成交的外层物品调用 SellItem，册中卡牌随容器一起转手。
                 if (booking != null && (booking.MatchesCard(item) ||
                     GraphUtils.FindAllChildrenType<GameItem>(item).Any(booking.MatchesCard))) Cancel(booking);
             }

@@ -5,7 +5,6 @@ namespace ProbablyTradingCards
     [HarmonyPatch(typeof(MeleeWeaponItemDirectory), "CreateBoxCutter")]
     public static class CutterIntegration
     {
-        // GameItem 按 OR 合并目标谓词；追加回调保留原版刀具对动物和鱼的操作。
         private static void Postfix(GameItem __result)
         {
             __result.mayThisTargetItemFunc += CanCutPack;

@@ -22,7 +22,6 @@ namespace ProbablyTradingCards
                 return code;
             }
 
-            // 原版放完这次搜到的所有战利品后才标记背包，扫描仪加的战利品也已放完。
             code.Insert(placementEnd + 1, new CodeInstruction(OpCodes.Call,
                 AccessTools.Method(typeof(ScavengedCardDrop), nameof(DropAfterScavenge))));
             return code;
