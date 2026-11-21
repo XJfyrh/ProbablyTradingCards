@@ -76,12 +76,17 @@ namespace ProbablyTradingCards
                 Root.localScale = Vector3.one * Mathf.Lerp(0.55f, 1f, travel);
                 float turn = Mathf.InverseLerp(-0.10f, 0.10f, age);
                 float rareBounce = RareSweep != null ? Mathf.Sin(Mathf.Clamp01(age / RareSweepDuration) * Mathf.PI) : 0f;
+                float tilt = Spotlight != null ? SpotlightReveal.TiltAt(age) : 0f;
                 float scale = 1f + 0.26f * lift + 0.045f * rareBounce;
-                float width = Mathf.Max(0.04f, Mathf.Abs(Mathf.Cos(turn * Mathf.PI)));
+                float width = Mathf.Max(0.04f, Mathf.Abs(Mathf.Cos(turn * Mathf.PI))) * (1f - 0.19f * tilt);
                 Surface.localScale = new Vector3(scale * width, scale, 1f);
                 Surface.anchoredPosition = Vector2.up * (5f * lift + 4f * rareBounce);
                 if (Spotlight != null)
+                {
+                    Surface.localRotation = Quaternion.Euler(0f, 0f, -9f * tilt);
                     ((RectTransform)Caption.transform).anchoredPosition = Vector2.down * (145f + 20f * lift);
+                    Caption.alpha = 1f - Mathf.InverseLerp(0f, 0.55f, tilt);
+                }
                 else
                     Caption.alpha = 1f - Mathf.InverseLerp(0.05f, 0.25f, focus);
                 Opacity.alpha = Spotlight != null ? 1f : 1f - 0.64f * focus;
@@ -111,10 +116,11 @@ namespace ProbablyTradingCards
         private sealed class SpotlightReveal
         {
             internal const float Duration = 2.30f;
-            private const float FocusInDuration = 0.30f;
+            internal const float SettleAt = 0.76f;
+            private const float LiftAt = 0.14f;
+            private const float FocusInDuration = 0.42f;
             private const float FocusOutDuration = 0.30f;
-            private const float SweepStart = 0.32f;
-            private const float SweepEnd = 0.80f;
+            private const float SweepStart = 0.47f;
             private readonly RectTransform brackets;
             private readonly CanvasGroup bracketOpacity;
             private readonly RectTransform light;
@@ -136,7 +142,7 @@ namespace ProbablyTradingCards
                             corner - Vector2.up * (y * 7f), illuminated);
                     }
 
-                art.gameObject.AddComponent<RectMask2D>();
+                art.gameObject.AddComponent<Mask>();
                 light = MakeRect(art.rectTransform, "inspection_light", new Vector2(63, 285), Vector2.zero);
                 light.localRotation = Quaternion.Euler(0, 0, -12);
                 lightOpacity = light.gameObject.AddComponent<CanvasGroup>();
@@ -145,23 +151,26 @@ namespace ProbablyTradingCards
                 Paint(light, "inspection_highlight", new Vector2(5, 285), Vector2.zero, new Color32(235, 244, 224, 114));
             }
 
-            internal static float FocusAt(float age) => Mathf.SmoothStep(0f, 1f, age / FocusInDuration) *
+            internal static float FocusAt(float age) => Mathf.SmoothStep(0f, 1f, (age - LiftAt) / FocusInDuration) *
                 Mathf.SmoothStep(0f, 1f, (Duration - age) / FocusOutDuration);
+
+            internal static float TiltAt(float age) => Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(LiftAt, SweepStart, age)) *
+                (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(SweepStart, SettleAt, age)));
 
             internal void Draw(float age, float lift)
             {
-                bool visible = age >= 0f && age < Duration;
+                bool visible = age >= LiftAt && age < Duration;
                 brackets.gameObject.SetActive(visible);
-                light.gameObject.SetActive(age >= SweepStart && age < SweepEnd);
+                light.gameObject.SetActive(age >= SweepStart && age < SettleAt);
                 if (!visible) return;
 
-                brackets.localScale = Vector3.one * (1.38f - 0.12f * Mathf.InverseLerp(0.12f, SweepStart, age));
+                float lockProgress = Mathf.InverseLerp(SweepStart, SettleAt, age);
+                brackets.localScale = Vector3.one * Mathf.Lerp(1.38f, 1.26f, lockProgress);
                 brackets.anchoredPosition = Vector2.up * (5f * lift);
-                bracketOpacity.alpha = lift;
+                bracketOpacity.alpha = lift * lockProgress;
 
-                float sweep = Mathf.InverseLerp(SweepStart, SweepEnd, age);
-                light.anchoredPosition = Vector2.right * Mathf.Lerp(-143f, 143f, sweep);
-                lightOpacity.alpha = Mathf.Sin(sweep * Mathf.PI);
+                light.anchoredPosition = Vector2.right * Mathf.Lerp(-143f, 143f, lockProgress);
+                lightOpacity.alpha = Mathf.Sin(lockProgress * Mathf.PI);
             }
         }
 
@@ -178,6 +187,7 @@ namespace ProbablyTradingCards
         private bool withCutter;
         private bool resealed;
         private bool playedOpening;
+        private bool playedSuperRare;
         private bool finished;
         private float startedAt;
         private float superRareAt = float.PositiveInfinity;
@@ -467,14 +477,19 @@ namespace ProbablyTradingCards
             }
 
             int cue = -1;
-            float focus = SpotlightReveal.FocusAt(elapsed - superRareAt);
+            float spotlightAge = elapsed - superRareAt;
+            float focus = SpotlightReveal.FocusAt(spotlightAge);
             for (int index = 0; index < cards.Length; index++)
                 if (cards[index].Draw(elapsed, RevealAt[index], (index - 1) * 188f, focus))
                     cue = Mathf.Max(cue, cards[index].Rank);
-            if (!playAudio || cue < 0) return;
-            CardSounds.Land();
+            if (!playAudio) return;
+            if (cue >= 0) CardSounds.Land();
             if (cue == 1) CardSounds.Rare();
-            if (cue == 2) CardSounds.SuperRare();
+            if (!playedSuperRare && spotlightAge >= SpotlightReveal.SettleAt && spotlightAge < SpotlightReveal.Duration)
+            {
+                playedSuperRare = true;
+                CardSounds.SuperRare();
+            }
         }
 
         private static RectTransform MakeRect(RectTransform parent, string name, Vector2 size, Vector2 position)
