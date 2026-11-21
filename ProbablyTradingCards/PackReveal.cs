@@ -297,7 +297,7 @@ namespace ProbablyTradingCards
             }
             if (legendPack)
             {
-                legends = new LegendsReveal(cards, stage, felt, shade, fat);
+                legends = new LegendsReveal(cards, stage, felt, shade, seal, fat);
                 finishAt = legends.EndAt;
             }
 
