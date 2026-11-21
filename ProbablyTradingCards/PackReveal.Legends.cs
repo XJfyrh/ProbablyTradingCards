@@ -54,7 +54,7 @@ namespace ProbablyTradingCards
                 feature = shots[featureIndex];
                 if (feature.Rank == 4)
                 {
-                    weightless = new WeightlessReveal(stage, seal, fat);
+                    weightless = new WeightlessReveal(stage, seal, cards[featureIndex], fat, featureIndex > 0);
                     for (int i = 0; i < featureIndex; i++)
                         shots[i].SetFloatMotion(weightless.Shadows, stage.sizeDelta, fat);
                 }
@@ -98,28 +98,25 @@ namespace ProbablyTradingCards
                     featureAge = elapsed - feature.At;
                     float release = 1f - Ease(feature.Duration - 0.37f, feature.Duration - 0.04f, featureAge);
                     focus = Ease(ScoreStart, feature.LockAt - 0.13f, featureAge) * release;
-                    darkness = weightless == null ? focus : Ease(0.10f, 0.42f, featureAge) * release *
-                        Mathf.Lerp(1f, 0.68f, Ease(WeightlessReveal.ReleaseAt, WeightlessReveal.ContactAt, featureAge));
+                    darkness = weightless == null ? focus : WeightlessReveal.DarknessAt(featureAge) * release;
                     felt.color = Color.Lerp(feltColor, weightless == null
-                        ? new Color32(22, 27, 44, 255) : new Color32(22, 21, 29, 255), darkness);
+                        ? new Color32(22, 27, 44, 255) : new Color32(14, 14, 23, 255), darkness);
                     shade.color = Color.Lerp(shadeColor, new Color32(13, 12, 21, weightless == null ? (byte)163 : (byte)211), darkness);
                 }
 
                 int turned = -1;
-                float lift = weightless == null ? 0f : WeightlessReveal.FloatAt(featureAge);
-                float bounce = weightless == null ? 0f : WeightlessReveal.BounceAt(featureAge);
                 float backdropDim = weightless == null ? 0.92f * Mathf.Sqrt(focus) :
-                    darkness * Mathf.Lerp(0.14f, 0.83f, Ease(WeightlessReveal.ContactAt + 0.06f, 1.43f, featureAge));
+                    darkness * Mathf.Lerp(0.08f, 0.89f, Ease(WeightlessReveal.FirstContactAt + 0.08f, 1.48f, featureAge));
                 foreach (var shot in shots)
                 {
                     float age = elapsed - shot.At;
-                    if (shot.Draw(age, focus, backdropDim, lift, bounce) && (weightless == null || shot != feature))
+                    if (shot.Draw(age, focus, backdropDim, featureAge) && (weightless == null || shot != feature))
                         turned = Mathf.Max(turned, shot.Rank);
                     if (playAudio && shot.GetCue(age, out string key, out float offset))
                         owner.revealMusic = CardSounds.PlayRevealMusic(owner.gameObject, key, offset, owner.revealMusic);
                 }
                 if (film != null) film.Draw(featureAge, feature.LockAt);
-                if (weightless != null) weightless.Draw(owner.wrapper, elapsed, featureAge, lift, bounce, focus);
+                weightless?.Draw(owner.wrapper, elapsed, featureAge, focus);
                 if (!playAudio) return;
                 bool contact = weightless?.MarkContact(featureAge) == true;
                 if (turned >= 0 || contact) CardSounds.Land();
@@ -134,7 +131,8 @@ namespace ProbablyTradingCards
                 private readonly bool featured;
                 private readonly RectTransform reflectedLight;
                 private readonly CanvasGroup reflection;
-                private LegendCastShadow shadow;
+                private LegendSoftSpot shadow;
+                private WeightlessReveal.FloatMotion flight;
                 private Vector2 floatOffset;
                 private float floatAngle;
                 private bool restsAside;
@@ -177,40 +175,48 @@ namespace ProbablyTradingCards
                 {
                     float direction = seat.x != 0f ? Mathf.Sign(seat.x) : (seat.y > 40f ? -1f : 1f);
                     Vector2 cardHalf = card.Surface.sizeDelta * (0.5f * seatScale);
-                    float room = stageSize.y / 2f - seat.y - cardHalf.y;
-                    float height = Mathf.Clamp(room - 10f, 3f, 54f);
-                    floatAngle = direction * Mathf.Lerp(3f, 13f, Mathf.InverseLerp(3f, 52f, height));
+                    float distanceFromCenter = Vector2.Scale(seat - Center, new Vector2(2f / stageSize.x, 2f / stageSize.y)).magnitude;
+                    float phase = Mathf.Clamp01(distanceFromCenter);
+                    flight = WeightlessReveal.FloatMotion.ForCard(phase);
+                    floatAngle = direction * (fat && seat.y > 100f ? 4f : 12f);
                     float radians = Mathf.Abs(floatAngle) * Mathf.Deg2Rad;
-                    float reach = cardHalf.x * Mathf.Cos(radians) + cardHalf.y * Mathf.Sin(radians);
-                    float maxDistance = Mathf.Max(0f, stageSize.x / 2f - Mathf.Abs(seat.x) - reach - 8f);
+                    float projectedHalfHeight = cardHalf.y * WeightlessReveal.FloatHeightScale;
+                    float reachX = cardHalf.x * Mathf.Cos(radians) + projectedHalfHeight * Mathf.Sin(radians);
+                    float reachY = cardHalf.x * Mathf.Sin(radians) + projectedHalfHeight * Mathf.Cos(radians);
+                    float height = Mathf.Clamp(stageSize.y / 2f - seat.y - reachY - 12f, 3f, 61f);
+                    float maxDistance = Mathf.Max(0f, stageSize.x / 2f - Mathf.Abs(seat.x) - reachX - 10f);
                     restsAside = !fat && seat.x == 0f;
-                    floatOffset = new Vector2(direction * Mathf.Min(restsAside ? 167f : 37f, maxDistance), height);
+                    floatOffset = new Vector2(direction * Mathf.Min(restsAside ? 176f : 51f, maxDistance), height);
                     Vector2 ground = seat - Vector2.up * (card.Surface.sizeDelta.y * 0.44f * seatScale);
-                    shadow = LegendCastShadow.Create(shadows, ground, new Vector2(137f, 26f) * seatScale);
+                    shadow = LegendSoftSpot.Shadow(shadows, ground, new Vector2(137f, 26f) * seatScale);
                 }
 
-                internal bool Draw(float age, float focus, float backdropDim, float weightless, float bounce)
+                internal bool Draw(float age, float focus, float backdropDim, float featureAge)
                 {
                     float travel = Ease(-0.24f, 0.10f, age);
                     float lift = featured ? focus : 0f;
                     float lean = Rank >= 2 && !featured ? Pulse(0f, Duration, age) : 0f;
                     float turnAge = Suspended ? age - LockAt : age;
-                    float drift = shadow != null ? weightless : 0f;
+                    float drift = 0f;
                     card.Root.gameObject.SetActive(travel > 0f);
                     card.Root.anchoredPosition = Vector2.Lerp(seat + Vector2.down * (1f - travel) * 37f, Center, lift);
                     if (shadow != null)
                     {
+                        flight.Evaluate(featureAge, out drift, out float bounce);
                         float horizontal = restsAside ? Mathf.Max(drift, focus) : drift;
                         float x = floatOffset.x * horizontal;
-                        card.Root.anchoredPosition += new Vector2(x, floatOffset.y * drift + 6f * bounce);
-                        shadow.SetLift(drift, bounce, x);
+                        card.Root.anchoredPosition += new Vector2(x, floatOffset.y * drift + 10f * bounce);
+                        shadow.DrawShadow(drift, bounce, x);
                     }
-                    card.Root.localScale = Vector3.one * Mathf.Lerp(seatScale * Mathf.Lerp(0.67f, 1f, travel), 1.24f, lift);
+                    float press = Suspended ? Ease(WeightlessReveal.ReleaseAt - 0.045f, LockAt + 0.17f, age) : 1f;
+                    float showcaseScale = Mathf.Lerp(1.12f, 1.24f, press);
+                    card.Root.localScale = Vector3.one * Mathf.Lerp(seatScale * Mathf.Lerp(0.67f, 1f, travel), showcaseScale, lift);
                     float flip = Mathf.Abs(Mathf.Cos(Mathf.InverseLerp(-0.10f, 0.10f, turnAge) * Mathf.PI));
-                    card.Surface.localScale = new Vector3(Mathf.Max(0.035f, flip * (1f - 0.17f * lean)), 1f + 0.075f * lean, 1f);
-                    float tilt = Suspended ? -6f * Ease(ScoreStart, 0.64f, age) * (1f - Ease(LockAt, LockAt + 0.15f, age)) : 0f;
+                    card.Surface.localScale = new Vector3(Mathf.Max(0.035f, flip * (1f - 0.17f * lean)),
+                        Mathf.Lerp(1f, WeightlessReveal.FloatHeightScale, drift) + 0.075f * lean, 1f);
+                    float tilt = Suspended ? -10f * Ease(ScoreStart, 0.59f, age) * (1f - Ease(LockAt, LockAt + 0.17f, age)) : 0f;
                     card.Surface.localRotation = Quaternion.Euler(0f, 0f, tilt - 8f * lean + floatAngle * drift);
-                    card.Surface.anchoredPosition = Vector2.up * (9f * lean + (Suspended ? 4f * lift : 0f));
+                    card.Surface.anchoredPosition = Vector2.up * (9f * lean + (Suspended ? Mathf.Lerp(-4f, 6f, press) * lift : 0f));
                     card.Caption.alpha = featured ? (Suspended ? Ease(0f, 0.16f, turnAge) : 1f) :
                         1f - Mathf.InverseLerp(0f, 0.42f, focus);
                     if (Suspended)
