@@ -62,6 +62,7 @@ namespace ProbablyTradingCards
             internal CanvasGroup Opacity;
             internal SpotlightReveal Spotlight;
             internal CanvasGroup Caption;
+            internal GameObject ResultDetails;
             internal Button Button;
             internal int Rank;
             internal bool Turned;
@@ -347,17 +348,20 @@ namespace ProbablyTradingCards
             var caption = MakeRect(root, "card_details", new Vector2(180, 64), new Vector2(0, -145));
             AddCaption(caption, definition.Name + "  " + definition.Rarity, 21, 18,
                 rank == 2 ? SuperRare : rank == 1 ? Rare : new Color32(223, 210, 196, 255));
+            var details = spotlight != null ? MakeRect(caption, "result_details", caption.sizeDelta, Vector2.zero) : caption;
             string condition = CardGame.Conditions[card.Condition];
             bool damaged = card.Condition < card.OriginalCondition;
-            AddCaption(caption, damaged ? CardGame.Conditions[card.OriginalCondition] + " → " + condition : condition,
+            AddCaption(details, damaged ? CardGame.Conditions[card.OriginalCondition] + " → " + condition : condition,
                 17, -4, damaged ? new Color32(228, 162, 116, 255) : new Color32(187, 174, 165, 255));
-            if (fillsSlot) AddCaption(caption, "可补卡位", 16, -25, Rare);
+            if (fillsSlot) AddCaption(details, "可补卡位", 16, -25, Rare);
+            var resultDetails = spotlight != null ? details.gameObject : null;
+            if (resultDetails != null) resultDetails.SetActive(false);
             caption.gameObject.SetActive(false);
             return new RevealedCard
             {
                 Root = root, Surface = surface, Back = back.gameObject, Face = art, Border = border,
                 Opacity = root.gameObject.AddComponent<CanvasGroup>(), RareSweep = rareSweep, Spotlight = spotlight,
-                Caption = caption.gameObject.AddComponent<CanvasGroup>(), Button = button, Rank = rank
+                Caption = caption.gameObject.AddComponent<CanvasGroup>(), ResultDetails = resultDetails, Button = button, Rank = rank
             };
         }
 
@@ -456,7 +460,11 @@ namespace ProbablyTradingCards
         {
             Draw(finishAt + 0.01f, false);
             finished = true;
-            foreach (var card in cards) card.Button.interactable = true;
+            foreach (var card in cards)
+            {
+                if (card.ResultDetails != null) card.ResultDetails.SetActive(true);
+                card.Button.interactable = true;
+            }
             outcome.SetText(resealed ? "封边残留旧胶 · 这包重新封过" : "");
             next.SetText("收起");
         }
