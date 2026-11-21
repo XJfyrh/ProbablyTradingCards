@@ -8,10 +8,12 @@
 
 ## 音效
 
-SR 揭牌使用本模组原创的复古合成器乐句。
+《空间站夜话》的 SR 揭牌使用本模组原创的复古合成器乐句。《空间站传奇》的 SR、SSR 和 UR 共用原创弦乐动机。
 
-以下外部音效素材均采用 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)。随模组分发的版本经过裁剪、单声道转换、音量调整和淡出处理。
+以下外部音效素材均采用 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)。
 
+- 传奇揭牌的提琴、大提琴和低音提琴采样来自 Versilian Studios 与贡献者录制的 [VSCO 2 Community Edition](https://versilian-studios.com/vsco-community/)。
+- UR 的金属共振使用 MathewHenry 的 [Deep Metal Hit 2](https://freesound.org/people/MathewHenry/sounds/636877/)，无词人声来自 Johnmode 的 [Mystical female choir swell 03](https://freesound.org/people/Johnmode/sounds/819349/)。
 - 撕包、落牌和入册使用 Kenney 的 `cards-pack-open-2.ogg`、`card-place-1.ogg` 和 `card-slide-4.ogg`。[Casino Audio](https://kenney.nl/assets/casino-audio)
 - R 揭牌提示和展示柜放置使用 Kenney 的 `pluck_002.ogg` 和 `glass_003.ogg`。[Interface Sounds](https://kenney.nl/assets/interface-sounds)
 - 割包使用 Sadiquecat 录制的美工刀切割纸板音效。[Small utility knife and carboard cutting (mke600)](https://freesound.org/people/Sadiquecat/sounds/815423/)

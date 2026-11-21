@@ -321,7 +321,8 @@ namespace ProbablyTradingCards
 
         public static void OpenFromInteraction(GameItem pack, GameItem cutter = null)
         {
-            bool showReveal = pack != null && pack.identifier == PackId;
+            bool showReveal = pack != null && TryGetPackKind(pack.identifier, out var kind) &&
+                (kind == PackKind.NightStories || StationLegends.IsLegendsPack(kind));
             if (TryOpen(pack, out string message, cutter, showReveal, out var reveal) &&
                 reveal != null && PackReveal.TryShow(reveal)) return;
             StoreUIManager.Instance.Notify(message);
@@ -384,7 +385,7 @@ namespace ProbablyTradingCards
                             revealedCards[index] = new PackReveal.Card(item, card.definition, card.condition, originalCondition);
                     }
                     if (revealedCards != null)
-                        opening = new PackReveal.Result(revealedCards, cutter != null, data.resealed);
+                        opening = new PackReveal.Result(data.kind, revealedCards, cutter != null, data.resealed);
                     message = $"拆出{contents.Count}张卡。";
                     if (damaged > 0) message += $"其中{damaged}张受损。";
                     if (data.resealed) message += "封边还粘着旧胶，这包重新封过。";

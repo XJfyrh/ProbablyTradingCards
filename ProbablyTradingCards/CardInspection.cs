@@ -20,13 +20,21 @@ namespace ProbablyTradingCards
 
         private static LoadedMod FindMod(string id) => ModLoader.Mods.Find(m => m.Manifest?.ID == id);
 
+        internal static string PaperArtKey(int definition, int condition) =>
+            NativeItems.SpriteKey(definition, CardGame.Catalogue[definition].Series.PackKind == PackKind.NightStories
+                ? condition : 2);
+
+        internal static Sprite WearArt(LoadedMod core, int condition) =>
+            condition != 2 && core != null && core.PaperSprites.TryGetValue("card_legends_wear_" + condition, out var wear)
+                ? wear : null;
+
         internal static void Show(GameItem item, bool closeOnEscape = true)
         {
             if (!TradingCardsApi.TryGetCard(item, out var card, out int condition)) return;
             int definition = card.Id;
             var mod = FindMod(card.Series.OwnerId);
             bool overlayWear = card.Series.PackKind != PackKind.NightStories;
-            string artKey = NativeItems.SpriteKey(definition, overlayWear ? 2 : condition);
+            string artKey = PaperArtKey(definition, condition);
             if (mod == null || !mod.PaperSprites.TryGetValue(artKey, out Sprite art))
             {
                 ModEntry.Log.Error($"找不到卡面 {card.Series.OwnerId}/Textures/Paper/{artKey}.png");
@@ -65,8 +73,7 @@ namespace ProbablyTradingCards
             builder.AddImage(oilSelected ? oilArt : art, artWidth, artHeight, "card_art");
             var image = builder.Last.image;
             image.preserveAspect = true;
-            if (overlayWear && condition != 2 &&
-                FindMod(ModEntry.ModId).PaperSprites.TryGetValue("card_legends_wear_" + condition, out Sprite wear))
+            if (overlayWear && WearArt(FindMod(ModEntry.ModId), condition) is Sprite wear)
             {
                 var overlay = new GameObject("card_wear", typeof(RectTransform), typeof(UnityEngine.UI.Image));
                 overlay.transform.SetParent(image.transform, false);

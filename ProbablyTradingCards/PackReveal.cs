@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 namespace ProbablyTradingCards
 {
-    internal sealed class PackReveal : MonoBehaviour
+    internal sealed partial class PackReveal : MonoBehaviour
     {
         internal const string WindowId = ModEntry.ModId + ".pack_reveal";
         private const float OpenAt = 0.22f;
@@ -23,12 +23,14 @@ namespace ProbablyTradingCards
 
         internal sealed class Result
         {
+            internal readonly PackKind Kind;
             internal readonly Card[] Cards;
             internal readonly bool WithCutter;
             internal readonly bool Resealed;
 
-            internal Result(Card[] cards, bool withCutter, bool resealed)
+            internal Result(PackKind kind, Card[] cards, bool withCutter, bool resealed)
             {
+                Kind = kind;
                 Cards = cards;
                 WithCutter = withCutter;
                 Resealed = resealed;
@@ -67,6 +69,16 @@ namespace ProbablyTradingCards
             internal int Rank;
             internal bool Turned;
 
+            internal bool RevealFace(float age)
+            {
+                if (Turned || age < 0f) return false;
+                Turned = true;
+                Back.SetActive(false);
+                Face.gameObject.SetActive(true);
+                Caption.gameObject.SetActive(true);
+                return true;
+            }
+
             internal bool Draw(float elapsed, float at, float x, float focus)
             {
                 float travel = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(at - 0.31f, at + 0.08f, elapsed));
@@ -91,14 +103,7 @@ namespace ProbablyTradingCards
                 else
                     Caption.alpha = 1f - Mathf.InverseLerp(0.05f, 0.25f, focus);
                 Opacity.alpha = Spotlight != null ? 1f : 1f - 0.64f * focus;
-                bool justTurned = !Turned && turn >= 0.5f;
-                if (justTurned)
-                {
-                    Turned = true;
-                    Back.SetActive(false);
-                    Face.gameObject.SetActive(true);
-                    Caption.gameObject.SetActive(true);
-                }
+                bool justTurned = RevealFace(age);
 
                 if (Turned && Rank > 0)
                     Border.color = Color.Lerp(Color.white, Rank == 1 ? Rare : SuperRare, Mathf.Clamp01(age / 0.26f));
@@ -185,7 +190,8 @@ namespace ProbablyTradingCards
         private CustomUIWindow window;
         private CustomUIElement next;
         private CustomUIElement outcome;
-        private AudioSource superRareMusic;
+        private AudioSource revealMusic;
+        private LegendsReveal legends;
         private bool withCutter;
         private bool resealed;
         private bool playedOpening;
@@ -197,26 +203,31 @@ namespace ProbablyTradingCards
 
         internal static bool TryShow(Result result)
         {
-            if (CustomUIManager.Instance == null || EmporiumEntry.Instance == null || result.Cards.Length != RevealAt.Length)
+            bool fat = result.Kind == PackKind.Fat;
+            if (CustomUIManager.Instance == null || EmporiumEntry.Instance == null || result.Cards.Length != (fat ? 9 : 3))
                 return false;
+            bool legendPack = StationLegends.IsLegendsPack(result.Kind);
             var mod = ModLoader.Mods.Find(entry => entry.Manifest?.ID == ModEntry.ModId);
-            if (mod == null || !mod.Sprites.TryGetValue("pack", out var pack) || pack == null) return false;
+            string packSprite = fat ? "legends_fat" : legendPack ? "legends_slim" : "pack";
+            if (mod == null || !mod.Sprites.TryGetValue(packSprite, out var pack) || pack == null) return false;
             var faces = new Sprite[result.Cards.Length];
+            var wear = new Sprite[faces.Length];
             for (int index = 0; index < faces.Length; index++)
             {
                 Card card = result.Cards[index];
-                if (!mod.PaperSprites.TryGetValue(NativeItems.SpriteKey(card.Definition, card.Condition), out faces[index]) ||
+                if (!mod.PaperSprites.TryGetValue(CardInspection.PaperArtKey(card.Definition, card.Condition), out faces[index]) ||
                     faces[index] == null) return false;
+                if (legendPack) wear[index] = CardInspection.WearArt(mod, card.Condition);
             }
 
             CustomUIWindow handle = null;
             try
             {
-                var builder = CustomUIManager.Window(WindowId, "《空间站夜话》拆包");
+                var builder = CustomUIManager.Window(WindowId, legendPack ? "《空间站传奇》拆包" : "《空间站夜话》拆包");
                 handle = builder.Handle;
                 var reveal = handle.root.AddComponent<PackReveal>();
                 builder.OnClose(reveal.RestorePresentation);
-                reveal.Build(builder, result, pack, faces);
+                reveal.Build(builder, result, pack, faces, wear);
                 builder.Show();
                 return true;
             }
@@ -228,16 +239,20 @@ namespace ProbablyTradingCards
             }
         }
 
-        private void Build(CustomUIBuilder builder, Result result, Sprite pack, Sprite[] faces)
+        private void Build(CustomUIBuilder builder, Result result, Sprite pack, Sprite[] faces, Sprite[] wear)
         {
             window = builder.Handle;
+            bool legendPack = StationLegends.IsLegendsPack(result.Kind);
+            bool fat = result.Kind == PackKind.Fat;
+            var stageSize = fat ? new Vector2(742f, 552f) : new Vector2(612f, 350f);
+            float width = stageSize.x + 54f, height = stageSize.y + 120f;
             withCutter = result.WithCutter;
             resealed = result.Resealed;
             var canvas = window.root.GetComponentInParent<Canvas>();
             var viewport = (RectTransform)canvas.transform;
-            float scale = Mathf.Min(1f, (Screen.width / canvas.scaleFactor - 40f) / 666f,
-                (Screen.height / canvas.scaleFactor - 48f) / 470f);
-            builder.SetSize(666f * scale, 470f * scale).Center().SetDraggable(false);
+            float scale = Mathf.Min(1f, (Screen.width / canvas.scaleFactor - 40f) / width,
+                (Screen.height / canvas.scaleFactor - 48f) / height);
+            builder.SetSize(width * scale, height * scale).Center().SetDraggable(false);
 
             shade = Paint((RectTransform)window.Rect.parent, "pack_reveal_shade", viewport.rect.size,
                 Vector2.zero, new Color32(19, 15, 24, 94));
@@ -248,28 +263,29 @@ namespace ProbablyTradingCards
             shade.rectTransform.SetSiblingIndex(window.Rect.GetSiblingIndex());
 
             builder.BeginColumn(5, TextAnchor.UpperCenter);
-            var area = MakeRect(builder.CurrentContainer, "reveal_surface", new Vector2(612f, 350f) * scale, Vector2.zero);
+            var area = MakeRect(builder.CurrentContainer, "reveal_surface", stageSize * scale, Vector2.zero);
             var areaLayout = area.gameObject.AddComponent<LayoutElement>();
-            areaLayout.preferredWidth = 612f * scale;
-            areaLayout.preferredHeight = 350f * scale;
-            stage = MakeRect(area, "counter", new Vector2(612f, 350f), Vector2.zero);
+            areaLayout.preferredWidth = stageSize.x * scale;
+            areaLayout.preferredHeight = stageSize.y * scale;
+            stage = MakeRect(area, "counter", stageSize, Vector2.zero);
             stage.localScale = Vector3.one * scale;
-            Paint(stage, "felt", stage.sizeDelta, Vector2.zero, new Color32(44, 39, 46, 255));
-            BuildWrapper(pack);
+            var felt = Paint(stage, "felt", stage.sizeDelta, Vector2.zero, new Color32(44, 39, 46, 255));
+            BuildWrapper(pack, legendPack);
 
             cards = new RevealedCard[faces.Length];
             var albumPockets = new List<GameGridInventory>();
+            string albumId = NativeItems.AlbumItemId(CardGame.Series.ForPack(result.Kind));
             foreach (GameItem album in EmporiumEntry.Instance.GetAllOwnedItemsByTag(NativeItems.AlbumTag))
-                if (album.identifier == NativeItems.AlbumId && GeneralHelper.IsItemEffectivelyOwned(album))
+                if (album.identifier == albumId && GeneralHelper.IsItemEffectivelyOwned(album))
                     albumPockets.AddRange(GraphUtils.FindAllChildrenType<GameGridInventory>(album));
             var marked = new HashSet<int>();
             for (int index = 0; index < cards.Length; index++)
             {
                 Card card = result.Cards[index];
                 bool fillsSlot = !marked.Contains(card.Definition) && albumPockets.Exists(pocket =>
-                    pocket.childItems.Count == 0 && pocket.mayInventoryAddItemFunc(card.Item, pocket));
+                    pocket.childItems.Count == 0 && pocket.mayInventoryAddItemFunc?.Invoke(card.Item, pocket) == true);
                 if (fillsSlot) marked.Add(card.Definition);
-                cards[index] = BuildCard(card, faces[index], pack, fillsSlot);
+                cards[index] = BuildCard(card, faces[index], wear[index], pack, fillsSlot, legendPack);
                 if (cards[index].Spotlight != null)
                 {
                     superRareAt = Mathf.Min(superRareAt, RevealAt[index]);
@@ -278,6 +294,11 @@ namespace ProbablyTradingCards
                 else if (cards[index].RareSweep != null)
                     finishAt = Mathf.Max(finishAt, RevealAt[index] + RareSweepDuration);
                 HideCard(card.Item);
+            }
+            if (legendPack)
+            {
+                legends = new LegendsReveal(cards, stage, felt, shade, fat);
+                finishAt = legends.EndAt;
             }
 
             outcome = builder.AddLabel("", "pack_outcome").Last.SetPreferredSize(480f * scale, 23f);
@@ -288,9 +309,11 @@ namespace ProbablyTradingCards
             Draw(0f, false);
         }
 
-        private void BuildWrapper(Sprite pack)
+        private void BuildWrapper(Sprite pack, bool legendPack)
         {
-            wrapper = MakeRect(stage, "wrapper", new Vector2(108, 162), Vector2.zero);
+            var size = new Vector2(108, 162);
+            if (legendPack) size.x = size.y * pack.rect.width / pack.rect.height;
+            wrapper = MakeRect(stage, "wrapper", size, Vector2.zero);
             wrapperOpacity = wrapper.gameObject.AddComponent<CanvasGroup>();
             seal = MakeRect(wrapper, "wrapper_seal", wrapper.sizeDelta, Vector2.zero);
             int columns = withCutter ? 1 : TearDepths.Length;
@@ -313,10 +336,10 @@ namespace ProbablyTradingCards
             Paint(mask, "foil", wrapper.sizeDelta, -center, Color.white).sprite = pack;
         }
 
-        private RevealedCard BuildCard(Card card, Sprite face, Sprite pack, bool fillsSlot)
+        private RevealedCard BuildCard(Card card, Sprite face, Sprite wear, Sprite pack, bool fillsSlot, bool legendPack)
         {
             var definition = CardGame.Catalogue[card.Definition];
-            int rank = definition.Rarity == "SR" ? 2 : definition.Rarity == "R" ? 1 : 0;
+            int rank = LegendsReveal.Rank(definition.Rarity);
             var cardSize = new Vector2(146, 219);
             var root = MakeRect(stage, "card", cardSize, Vector2.zero);
             var surface = MakeRect(root, "card_surface", cardSize, Vector2.zero);
@@ -331,31 +354,39 @@ namespace ProbablyTradingCards
 
             var back = Paint(surface, "card_back", cardSize, Vector2.zero, new Color32(57, 44, 65, 255));
             Paint(back.rectTransform, "card_back_inset", new Vector2(128, 201), Vector2.zero, new Color32(44, 33, 53, 255));
-            var mark = MakeRect(back.rectTransform, "night_stories_mark", new Vector2(52, 46), Vector2.zero);
+            var mark = MakeRect(back.rectTransform, "pack_mark", new Vector2(52, 46), Vector2.zero);
             mark.gameObject.AddComponent<RectMask2D>();
             Paint(mark, "mark_art", new Vector2(88, 132), new Vector2(0, 3), Color.white).sprite = pack;
 
             var art = Paint(surface, "card_face", cardSize, Vector2.zero, Color.white);
             art.sprite = face;
+            if (wear != null) Paint(art.rectTransform, "card_wear", cardSize, Vector2.zero, Color.white).sprite = wear;
             Image rareSweep = null;
-            if (rank == 1)
+            if (!legendPack && rank == 1)
             {
                 art.gameObject.AddComponent<RectMask2D>();
                 rareSweep = Paint(art.rectTransform, "rare_sweep", new Vector2(cardSize.x, 12), Vector2.zero, Rare);
             }
-            var spotlight = rank == 2 ? new SpotlightReveal(root, art, cardSize) : null;
+            var spotlight = !legendPack && rank == 2 ? new SpotlightReveal(root, art, cardSize) : null;
             art.gameObject.SetActive(false);
 
             var caption = MakeRect(root, "card_details", new Vector2(180, 64), new Vector2(0, -145));
-            AddCaption(caption, definition.Name + "  " + definition.Rarity, 21, 18,
-                rank == 2 ? SuperRare : rank == 1 ? Rare : new Color32(223, 210, 196, 255));
-            var details = spotlight != null ? MakeRect(caption, "result_details", caption.sizeDelta, Vector2.zero) : caption;
+            var title = AddCaption(caption, definition.Name + "  " + definition.Rarity, 21, 18,
+                rank == 0 ? new Color32(223, 210, 196, 255) : LegendsReveal.RankColor(rank));
+            if (legendPack)
+            {
+                title.enableAutoSizing = true;
+                title.fontSizeMin = 13f;
+                title.fontSizeMax = 21f;
+            }
+            bool deferDetails = spotlight != null || legendPack;
+            var details = deferDetails ? MakeRect(caption, "result_details", caption.sizeDelta, Vector2.zero) : caption;
             string condition = CardGame.Conditions[card.Condition];
             bool damaged = card.Condition < card.OriginalCondition;
             AddCaption(details, damaged ? CardGame.Conditions[card.OriginalCondition] + " → " + condition : condition,
                 17, -4, damaged ? new Color32(228, 162, 116, 255) : new Color32(187, 174, 165, 255));
             if (fillsSlot) AddCaption(details, "可补卡位", 16, -25, Rare);
-            var resultDetails = spotlight != null ? details.gameObject : null;
+            var resultDetails = deferDetails ? details.gameObject : null;
             if (resultDetails != null) resultDetails.SetActive(false);
             caption.gameObject.SetActive(false);
             return new RevealedCard
@@ -366,7 +397,7 @@ namespace ProbablyTradingCards
             };
         }
 
-        private void AddCaption(RectTransform parent, string value, float fontSize, float y, Color color)
+        private TextMeshProUGUI AddCaption(RectTransform parent, string value, float fontSize, float y, Color color)
         {
             var rect = MakeRect(parent, "reveal_caption", new Vector2(180, 44), new Vector2(0, y));
             var text = rect.gameObject.AddComponent<TextMeshProUGUI>();
@@ -382,6 +413,7 @@ namespace ProbablyTradingCards
             text.enableWordWrapping = false;
             text.color = color;
             text.raycastTarget = false;
+            return text;
         }
 
         private void HideCard(GameItem item)
@@ -398,7 +430,7 @@ namespace ProbablyTradingCards
         private void RestorePresentation()
         {
             finished = true;
-            if (superRareMusic != null) superRareMusic.Stop();
+            if (revealMusic != null) revealMusic.Stop();
             var ui = CustomUIManager.Instance;
             if (ui != null && ui.GetWindow(CardInspection.WindowId) is CustomUIWindow inspection && !inspection.closeOnEscape)
                 inspection.Close();
@@ -459,7 +491,7 @@ namespace ProbablyTradingCards
                 window.Close();
                 return;
             }
-            if (superRareMusic != null) superRareMusic.Stop();
+            if (revealMusic != null) revealMusic.Stop();
             Finish();
         }
 
@@ -472,7 +504,7 @@ namespace ProbablyTradingCards
                 if (card.ResultDetails != null) card.ResultDetails.SetActive(true);
                 card.Button.interactable = true;
             }
-            outcome.SetText(resealed ? "封边残留旧胶 · 这包重新封过" : "");
+            outcome.SetText(resealed ? "封边残留旧胶，这包重新封过" : "");
             next.SetText("收起");
         }
 
@@ -491,6 +523,12 @@ namespace ProbablyTradingCards
                 else CardSounds.Tear();
             }
 
+            if (legends != null)
+            {
+                legends.Draw(this, elapsed, playAudio);
+                return;
+            }
+
             int cue = -1;
             float spotlightAge = elapsed - superRareAt;
             float focus = SpotlightReveal.FocusAt(spotlightAge);
@@ -503,7 +541,8 @@ namespace ProbablyTradingCards
             if (!playedSuperRare && spotlightAge >= SpotlightReveal.LiftAt && spotlightAge < SpotlightReveal.Duration)
             {
                 playedSuperRare = true;
-                superRareMusic = CardSounds.PlaySuperRare(gameObject, spotlightAge - SpotlightReveal.LiftAt);
+                revealMusic = CardSounds.PlayRevealMusic(gameObject, "card_super_rare",
+                    spotlightAge - SpotlightReveal.LiftAt, revealMusic);
             }
         }
 

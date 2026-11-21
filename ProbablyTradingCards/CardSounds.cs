@@ -14,16 +14,17 @@ namespace ProbablyTradingCards
 
         private static void PlayMaterial(string key) => ModHelper.PlaySound2(ModEntry.ModId, key);
 
-        internal static AudioSource PlaySuperRare(GameObject owner, float age)
+        internal static AudioSource PlayRevealMusic(GameObject owner, string key, float age, AudioSource player)
         {
             var audio = AudioManager.Instance;
-            string identifier = ModHelper.GetSoundIdentifier(ModEntry.ModId, "card_super_rare");
-            if (!audio.CanPlay(identifier)) return null;
+            string identifier = ModHelper.GetSoundIdentifier(ModEntry.ModId, key);
+            if (audio == null || !audio.CanPlay(identifier)) return player;
             var clip = audio.audioDirectory.GetAudioClip(identifier);
-            if (age >= clip.length) return null;
+            if (clip == null || age >= clip.length) return player;
 
             var effects = audio.audioSource;
-            var player = owner.AddComponent<AudioSource>();
+            if (player == null) player = owner.AddComponent<AudioSource>();
+            else player.Stop();
             player.playOnAwake = false;
             player.outputAudioMixerGroup = effects.outputAudioMixerGroup;
             player.volume = effects.volume;

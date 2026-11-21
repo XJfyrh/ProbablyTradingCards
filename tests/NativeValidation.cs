@@ -15,6 +15,7 @@ namespace ProbablyTradingCards
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "卡牌数据快照", Snapshot);
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "拆包交互样品", CreateInteractionSamples);
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "夜话揭牌试玩样品", CreateRevealSamples);
+            ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "传奇揭牌试玩样品", CreateLegendsRevealSamples);
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "卡面品相样品", CreateCardArtSamples);
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "星港收藏簿样品", CreateLegendsSamples);
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "异次元卡商样品（保存27号档）", SeedBranchSellerPlaytest);
@@ -132,26 +133,55 @@ namespace ProbablyTradingCards
                 DirectoryMaster.Item("box_cutter"),
                 DirectoryMaster.Item(NativeItems.AlbumId)
             };
-            if (samples.All(NativeItems.PlaceOwned)) return;
-
-            foreach (GameItem sample in samples) sample.Destroy();
-            ModEntry.Log.Warning("夜话揭牌试玩样品需要更多库存空间。");
+            PlaceRevealSamples(samples, "夜话");
         }
 
-        private static GameItem CreateRevealSample(string name, int lastCard, bool resealed, params int[] tearRolls)
+        private static void CreateLegendsRevealSamples()
         {
-            GameItem pack = DirectoryMaster.Item(NativeItems.PackId);
+            var samples = new List<GameItem>
+            {
+                CreateRevealSample("传奇① 全 C 瘦包（二封）", PackKind.Slim, true, new[] { 9, 10, 11 }),
+                CreateRevealSample("传奇② R 瘦包", PackKind.Slim, false, new[] { 9, 10, 16 }),
+                CreateRevealSample("传奇③ SR 瘦包", PackKind.Slim, false, new[] { 9, 10, 30 }),
+                CreateRevealSample("传奇④ Eleanor 瘦包", PackKind.Slim, false, new[] { 9, 10, 39 }),
+                CreateRevealSample("传奇⑤ 房契瘦包", PackKind.Slim, false, new[] { 9, 10, 46 }),
+                CreateRevealSample("传奇⑥ Eleanor 与房契肥包", PackKind.Fat, false,
+                    new[] { 9, 10, 11, 12, 16, 17, 39, 46, 30 }),
+                CreateRevealSample("传奇⑦ 美食游客异画瘦包", PackKind.Slim, false, new[] { 9, 10, 16 },
+                    alternate: StationLegends.Foodie)
+            };
+            PlaceRevealSamples(samples, "传奇");
+        }
+
+        private static void PlaceRevealSamples(List<GameItem> samples, string series)
+        {
+            if (samples.All(NativeItems.PlaceOwned)) return;
+            foreach (GameItem sample in samples) sample.Destroy();
+            ModEntry.Log.Warning($"{series}揭牌试玩样品需要更多库存空间。");
+        }
+
+        private static GameItem CreateRevealSample(string name, int lastCard, bool resealed, params int[] tearRolls) =>
+            CreateRevealSample(name, PackKind.NightStories, resealed, new[] { 0, 1, lastCard }, tearRolls);
+
+        private static GameItem CreateRevealSample(string name, PackKind kind, bool resealed, int[] definitions,
+            int[] tearRolls = null, int? alternate = null)
+        {
+            GameItem pack = DirectoryMaster.Item(NativeItems.PackItemId(kind));
+            bool legends = StationLegends.IsLegendsPack(kind);
             NativeItems.SetPackData(pack, new CardPack
             {
-                kind = PackKind.NightStories,
+                kind = kind,
                 resealed = resealed,
                 seal = resealed ? 3 : 0,
-                contents = new[] { 0, 1, lastCard }.Select(definition => new OwnedCard
+                contents = definitions.Select(definition => new OwnedCard
                 {
                     definition = definition,
                     condition = resealed ? 0 : 2
                 }).ToList(),
-                tearRolls = tearRolls.ToList()
+                tearRolls = (tearRolls ?? Enumerable.Repeat(99, definitions.Length)).ToList(),
+                alternateRoll = legends ? (alternate.HasValue ? 0 : StationLegends.RollScale - 1) : (int?)null,
+                alternatePick = legends ? 0 : (int?)null,
+                resolvedAlternate = alternate
             });
             pack.SetName(name);
             return pack;
