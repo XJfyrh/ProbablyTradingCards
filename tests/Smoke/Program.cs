@@ -12,6 +12,7 @@ void Check(bool condition, string message)
     checks++;
     if (!condition) throw new Exception(message);
 }
+ValidationCleanupChecks.Run(Check);
 string Serialize(CardPack pack) => JsonConvert.SerializeObject(pack);
 CardPack Copy(CardPack pack) => JsonConvert.DeserializeObject<CardPack>(Serialize(pack));
 void Reject(Action action, string message)
@@ -268,19 +269,20 @@ foreach (var (day, expected) in new[]
     Check(counts.SequenceEqual(expected), "second series seller mix");
 }
 
-foreach (var kind in new[] { PackKind.Slim, PackKind.Fat })
+foreach (var (kind, cardsPerPack, packsPerBox) in new[] { (PackKind.Slim, 3, 12), (PackKind.Fat, 9, 6) })
 {
     for (int seed = 0; seed < 500; seed++)
     {
         var pack = CardGame.GeneratePack(new Random(seed), kind, factory: true);
         CardGame.ValidatePack(pack);
-        Check(!pack.resealed && pack.contents.Count == StationLegends.SlotCount(kind), "factory pack kind and capacity");
+        Check(!pack.resealed && pack.kind == kind && pack.contents.Count == cardsPerPack, "factory pack kind and capacity");
         var rarities = pack.contents.Select(card => CardGame.Catalogue[card.definition].Rarity).ToArray();
         Check(rarities.Take(kind == PackKind.Slim ? 1 : 4).All(rarity => rarity == "C"), "factory pack common slots");
         if (kind == PackKind.Fat) Check(rarities[4] == "R" && rarities[5] == "R", "factory fat pack rare slots");
         Check(rarities.Last() != "C" && (kind == PackKind.Slim || rarities.Last() != "R"), "factory pack guarantees");
         Check(Serialize(Copy(pack)) == Serialize(pack), "new pack JSON round trip");
         var box = StationLegends.GenerateBox(new Random(seed), kind);
+        Check(box.packs.Count == packsPerBox, "factory box capacity");
         StationLegends.ValidateBox(box, kind);
         var restored = JsonConvert.DeserializeObject<CardBox>(JsonConvert.SerializeObject(box));
         StationLegends.ValidateBox(restored, kind);

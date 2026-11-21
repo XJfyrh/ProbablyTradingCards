@@ -31,7 +31,9 @@ dotnet build -c Release "-p:GameDir=C:/Games/Probably Stolen"
 
 原样构建示例时，清单检查器会显示 `dock_letters/dock_demo（2 张卡，第 2 天发售）`。构建成功后，`dist/DockLetters/` 包含 `manifest.xml`、嵌有系列清单的 DLL、两张阅读图和六张背包图标。改名为 `HarborPost.csproj` 后，分发目录相应变为 `dist/HarborPost/`。
 
-首次分发自己的卡辑前，在上述构建命令后加 `-p:UpdateSeriesIdentities=true`，生成并提交 `series-identities.json`。有这份清单后，普通构建会检查系列键、卡种编号、贴图键和包内张数。替换某张已分发单卡的画面时，沿用它的素材键。新增卡牌时生成新清单，查看差异后与卡辑一起提交。
+首次分发自己的卡辑前，在构建命令末尾加 `-p:UpdateSeriesIdentities=true`，生成并提交 `series-identities.json`。以后给已有卡换画时，沿用原素材键。新增卡牌时，把它追加到 `cards` 末尾，再用这个参数更新清单。普通构建和更新清单都会检查已记录的卡牌编号、贴图键、每包张数和卡套顺序。
+
+如果已有的 `series-identities.json` 缺少 `albumOrder`，首次更新时同时传入 `-p:UpdateSeriesIdentities=true` 和 `"-p:PublishedSeriesProject=旧版项目的绝对路径"`。将路径指向发布该版本时包含 `manifest.xml` 的项目目录。检查器会从其中的 `Series/<key>/series.json` 读出当时的卡套顺序。
 
 ## 在本仓库直接构建
 

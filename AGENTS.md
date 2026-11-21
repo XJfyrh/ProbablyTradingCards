@@ -13,20 +13,20 @@
 
 ## 构建与验证
 
-从仓库根目录用 PowerShell 执行。按 [构建说明](README.md#构建模组) 准备 Windows、.NET 10 SDK 和安装了 Pillow 的 Python，并将 `PROBABLY_STOLEN_GAME_DIR` 指向本机游戏目录。构建依赖游戏随附的程序集。
+从仓库根目录用 PowerShell 执行。Smoke 使用 .NET 10 SDK，美术工具使用带 Pillow 的 Python。构建模组或验证游戏原生行为时，按构建说明设置 `PROBABLY_STOLEN_GAME_DIR`。[构建说明](README.md#构建模组)
 
 | 改动范围 | 验证入口 |
 | --- | --- |
 | 模组代码或打包内容 | `dotnet build ProbablyTradingCards/ProbablyTradingCards.csproj -c Release` |
 | 卡池、出率、供货或保存数据 | `dotnet run --project tests/Smoke/Smoke.csproj -c Release` |
 | 卡辑注册、扩展接口或跨模组成交 | `./tests/Extensions/run.ps1` |
-| 卡面或图标 | 按[美术导出说明](scripts/README.md)重新导出，再用 `./.venv/Scripts/python.exe scripts/export_series.py --check-core` 核对主模组纹理 |
+| 卡面或图标 | 按[美术导出说明](scripts/README.md)重新导出。主模组运行 `./.venv/Scripts/python.exe scripts/check_art_exports.py` 核对成品，独立扩展运行自身的构建命令。 |
 | 鼠标交互、界面或完整读档流程 | 在专用测试档按[测试与试玩](tests/README.md)复验受影响的路径 |
 
 按改动选检查。纯文档改动检查链接和命令引用。准备发布时运行 `./tests/verify.ps1`，并按试玩文档验证本次正式包。离线测试、原生验证包构建和实机试玩分别记录结果。已有检查能覆盖时直接复用，遇到失败、新改动或明确的覆盖缺口时再扩大验证。
 
 ## Code Review Rules
 
-- 标出会让已发布物品无法读档或改变原封包内容的标识变更。保留 `manifest.xml` 中的模组 ID，以及 `series-identities.json` 中现有的系列键、卡牌编号、贴图键和包内张数。新增卡或卡辑后，按[新增卡辑](docs/development/新增卡辑.md)的步骤更新清单并审查差异。确需更改已有标识时，先验证受影响的旧存档。
+- 新增卡或卡辑时按[新增卡辑](docs/development/新增卡辑.md)更新标识清单。有意改变已发布存档格式时，说明如何读取旧物品和原封包，并用旧版数据验证。[发布标识检查](tests/README.md#核对已发布的卡辑标识)
 - 标出改动跨模组公开接口或注册流程时对现有扩展的具体影响。以[外部模组接口](docs/development/外部模组接口.md)和独立扩展的验证结果核对兼容性。
 - 标出正式包夹带原版游戏程序集或原生验证代码的改动。使用 [发布指南](docs/release/README.md)中的 `./scripts/release.ps1` 生成和检查发布包，按实测更新 `GameVersions`。在任务包含发布时执行上传或调整可见性。

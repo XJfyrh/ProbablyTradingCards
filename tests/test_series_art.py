@@ -17,6 +17,25 @@ TEXTURES = ROOT / "ProbablyTradingCards" / "Textures"
 
 
 class SeriesArtTest(unittest.TestCase):
+    @unittest.skipUnless(sys.platform == "win32", "Night Stories uses the Windows System.Drawing exporter")
+    def test_changed_box_art_requires_a_new_inventory_icon(self):
+        with TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            for folder in ("Art", "Series", "Textures"):
+                shutil.copytree(TEXTURES.parent / folder, project / folder)
+            source = project / "Art/StationLegends/Packaging/legends_fat_box.png"
+            with Image.open(source) as original:
+                flipped = original.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+            flipped.save(source)
+            icon = project / "Textures/Items/legends_fat_box.png"
+            before = icon.read_bytes()
+            result = subprocess.run([sys.executable, str(ROOT / "scripts/check_art_exports.py"),
+                                     "--project", str(project)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+            self.assertIn(icon.name, result.stderr)
+            self.assertIn("differs from the artwork export", result.stderr)
+            self.assertEqual(icon.read_bytes(), before)
+
     def test_core_checks_built_in_and_expansion_textures(self):
         with TemporaryDirectory() as temporary:
             project = Path(temporary)
@@ -31,6 +50,7 @@ class SeriesArtTest(unittest.TestCase):
                 ("Cards/card_0_wear_1.png", None, "missing required texture"),
                 ("Cards/card_legends_eleanor-rev-oil.png", b"broken", "cannot identify image file"),
                 ("Items/legends_fat_box.png", (32, 48), "expected 64 x 48 PNG"),
+                ("Items/legends_fat_box.png", (64, 48), "no visible foreground"),
                 ("Items/card_set_dock_demo_ticket--wear-1.png", None, "missing required texture"),
             ):
                 with self.subTest(texture=relative):
@@ -91,6 +111,13 @@ class SeriesArtTest(unittest.TestCase):
             self.assertIn("album.png", run("dock_demo", success=False).stderr)
             self.assertFalse(wear_icon.exists(), "A missing source image partially overwrote the previous export")
             shutil.copyfile(items / "legends_album.png", series / "album.png")
+            faint = Image.new("RGBA", (512, 512), (255, 32, 0, 100))
+            faint.putpixel((0, 0), (255, 32, 0, 255))
+            faint.save(series / "pack.png")
+            message = run("dock_demo", success=False).stderr
+            self.assertIn("pack.png", message)
+            self.assertIn("no visible foreground", message)
+            shutil.copyfile(items / "pack.png", series / "pack.png")
             run("dock_demo")
             for name in ("set_dock_demo_pack", "set_dock_demo_album"):
                 self.assertTrue((items / f"{name}.png").is_file())
@@ -101,6 +128,11 @@ class SeriesArtTest(unittest.TestCase):
             nested.parent.mkdir()
             shutil.copyfile(manifest, nested)
             self.assertIn(str(nested.relative_to(project)), run("--check", success=False).stderr)
+            rendered_pack = items / "set_dock_demo_pack.png"
+            Image.new("RGBA", (32, 48)).save(rendered_pack)
+            message = run("dock_demo", "--check", success=False).stderr
+            self.assertIn(rendered_pack.name, message)
+            self.assertIn("no visible foreground", message)
 
     def test_external_package_owns_only_its_art(self):
         with TemporaryDirectory() as temporary:

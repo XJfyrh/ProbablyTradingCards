@@ -7,6 +7,10 @@
       "packSlots": 2,
       "packSprite": "pack",
       "albumSprite": "legends_album",
+      "albumOrder": [
+        1356309392,
+        1900589081
+      ],
       "cards": {
         "1356309392": "courier",
         "1900589081": "ticket"

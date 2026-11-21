@@ -1,43 +1,43 @@
-name: 脚本和卡牌纹理检查
+name: 玩法规则与卡牌资源检查
 
 on:
   pull_request:
-    paths:
-      - '.github/workflows/checks.yml'
-      - 'scripts/**'
-      - 'tests/test_*.py'
-      - 'ProbablyTradingCards/Series/**'
-      - 'ProbablyTradingCards/Textures/**'
-      - 'Examples/DockLetters/Series/**'
   push:
     branches: [main]
-    paths:
-      - '.github/workflows/checks.yml'
-      - 'scripts/**'
-      - 'tests/test_*.py'
-      - 'ProbablyTradingCards/Series/**'
-      - 'ProbablyTradingCards/Textures/**'
-      - 'Examples/DockLetters/Series/**'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  scripts-and-textures:
-    name: Python 测试与纹理校验
+  offline-checks:
+    name: Smoke、Python 测试与纹理校验
     runs-on: windows-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+      - name: 检查玩法与存档规则
+        run: dotnet run --project tests/Smoke/Smoke.csproj -c Release
+      - name: 验证卡辑作者工具能拒绝破坏性变更
+        run: python -X utf8 tests/check_series_identities.py
+      - name: 对照已发布版本核对卡辑标识
+        env:
+          BASE_REVISION: ${{ github.event.pull_request.base.sha || github.sha }}
+        run: python -X utf8 tests/check_published_series.py --base $env:BASE_REVISION
       - name: 安装 Python 依赖
         run: python -m pip install -r scripts/requirements.txt
       - name: 运行 Python 测试
         run: python -X utf8 -m unittest discover -s tests -p 'test_*.py'
       - name: 校验主模组纹理
         run: python -X utf8 scripts/export_series.py --check-core
+      - name: 对比原画与已提交的游戏贴图
+        run: python -X utf8 scripts/check_art_exports.py

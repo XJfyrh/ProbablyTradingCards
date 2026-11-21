@@ -9,6 +9,7 @@ import subprocess
 import sys
 from tempfile import TemporaryDirectory
 import time
+import xml.etree.ElementTree as ET
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,9 +36,20 @@ def release_identity(game_dir, release):
                          if expected.get(key) != actual.get(key))
     if differences:
         raise ValueError(f"安装包与正式构建有 {len(differences)} 处差异，例如 {differences[0]}。")
+    manifest = ET.parse(release / "manifest.xml").getroot()
+    assemblies = [(node.text or "").strip() for node in manifest.findall("./Assemblies/Assembly")]
+    if assemblies != [f"{MOD}.dll"]:
+        raise ValueError(f"正式包程序集清单必须只包含 {MOD}.dll。")
+    version = (manifest.findtext("ModVersion") or "").strip()
+    if (manifest.findtext("ID") or "").strip() != CORE or not version:
+        raise ValueError("正式包清单缺少正确的模组 ID 或版本。")
+    # The loader audits ModFingerprint.Combined, not its separate texture/folder hash.
+    loader_input = f"{expected['manifest.xml']}\n{MOD}.dll|{expected[f'{MOD}.dll']}"
+    loader_hash = hashlib.sha256(loader_input.encode("utf-8")).hexdigest()
     index = json.dumps(expected, sort_keys=True).encode("utf-8")
     return {"installed": str(installed.resolve()), "dllSha256": actual[f"{MOD}.dll"],
-            "packageSha256": hashlib.sha256(index).hexdigest()}
+            "packageSha256": hashlib.sha256(index).hexdigest(), "loaderHash": loader_hash,
+            "version": version}
 
 
 def git(*args):
@@ -78,6 +90,12 @@ def checkpoint(args):
     if code:
         raise ValueError(startup.get("error") or "最新游戏审计中未启用卡牌模组。")
     loaded = startup["mods"][CORE]
+    if loaded["source"] != "Local" or loaded["workshop"] != 0:
+        raise ValueError("最新游戏审计加载的不是本地 Mods 安装包，请退出并加载本次正式包。")
+    if loaded["hash"] != identity["loaderHash"]:
+        raise ValueError("最新游戏审计的加载指纹与正式包不符，请退出并重启游戏。")
+    if loaded["version"] != identity["version"]:
+        raise ValueError("最新游戏审计的版本与正式包清单不符，请退出并重启游戏。")
     source = {"commit": git("rev-parse", "HEAD"), "dirty": bool(git("status", "--porcelain"))}
     first = json.loads(filenames[0].read_text(encoding="utf-8")) if step_index else None
     if step_index and (not isinstance(first, dict) or first.get("package") != identity
@@ -100,6 +118,7 @@ def checkpoint(args):
             "checkpoint": args.step, "capturedAt": datetime.now(timezone.utc).isoformat(),
             "checkout": source, "package": identity, "version": loaded["version"],
             "startupHash": loaded["hash"], "gamePid": pid, "note": args.note,
+            "startupSource": loaded["source"],
             "screenshot": record_path.with_suffix(".png").name,
         }
         metadata = image.with_suffix(".json")
@@ -133,7 +152,7 @@ def main():
     try:
         print(checkpoint(args))
         return 0
-    except (Blocked, OSError, ValueError, subprocess.SubprocessError) as error:
+    except (Blocked, OSError, ValueError, ET.ParseError, subprocess.SubprocessError) as error:
         print(error, file=sys.stderr)
         return 2
 

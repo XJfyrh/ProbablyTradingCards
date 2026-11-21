@@ -3,10 +3,14 @@ namespace ProbablyTradingCards
     public sealed class ModEntry : IMod
     {
         public const string ModId = CardRegistry.CoreOwnerId;
-        internal const string Version = "0.7.0";
+        internal static string Version { get; private set; }
         internal static ModLog Log;
 
-        public void Init(ModManifest manifest) => Log = new ModLog(manifest);
+        public void Init(ModManifest manifest)
+        {
+            Version = manifest.ModVersion;
+            Log = new ModLog(manifest);
+        }
 
         public void OnEnable()
         {

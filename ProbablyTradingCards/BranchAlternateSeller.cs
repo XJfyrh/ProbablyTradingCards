@@ -68,7 +68,6 @@ namespace ProbablyTradingCards
             StoreClientFactionSetup.InitUpperLevelCitizen(client);
             var offers = new Dictionary<int, GameItem>();
             var remaining = new List<int>();
-            bool greeted = false;
 
             bool TryMatchOffer(GameItem item, out CardDefinition card) =>
                 TradingCardsApi.TryGetCard(item, out card, out _) &&
@@ -87,8 +86,6 @@ namespace ProbablyTradingCards
             client.mainDialogue.SetText(SellerName, "我那边的人也开这家店。只是有些事，后来走了另一条路。你看看这张。")
                 .SetEndAction(() =>
                 {
-                    if (greeted) return;
-                    greeted = true;
                     remaining.AddRange(MissingCards());
                     PresentStock();
                 });

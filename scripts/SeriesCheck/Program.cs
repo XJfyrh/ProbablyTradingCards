@@ -3,13 +3,33 @@ using System.Text.Json.Nodes;
 using System.Xml.Linq;
 using ProbablyTradingCards;
 
+if (args.Length is 3 or 4 && args[0] == "--compare")
+{
+    try
+    {
+        PublishedIdentities.Check(JsonNode.Parse(File.ReadAllText(args[1])), JsonNode.Parse(File.ReadAllText(args[2])), args.ElementAtOrDefault(3));
+        return 0;
+    }
+    catch (Exception error)
+    {
+        Console.Error.WriteLine(error.Message);
+        return 1;
+    }
+}
+int legacyIndex = Array.IndexOf(args, "--legacy-project");
+string legacyProject = null;
+if (legacyIndex >= 0 && legacyIndex + 1 < args.Length)
+{
+    legacyProject = args[legacyIndex + 1];
+    args = args.Where((_, i) => i != legacyIndex && i != legacyIndex + 1).ToArray();
+}
 bool checkCore = args.Contains("--core", StringComparer.Ordinal);
 bool writeIdentities = args.Contains("--write-identities", StringComparer.Ordinal);
 string[] projects = args.Where(arg => arg is not ("--core" or "--write-identities")).ToArray();
 if (projects.Length == 0 || projects.Any(project => project.StartsWith("--", StringComparison.Ordinal)) ||
     ((checkCore || writeIdentities) && projects.Length != 1))
 {
-    Console.Error.WriteLine("Usage: SeriesCheck [--core] [--write-identities] <project directory> [another content project ...]");
+    Console.Error.WriteLine("SeriesCheck [--core] [--write-identities] [--legacy-project <published project>] <project> [another project ...]\nSeriesCheck --compare <published snapshot> <current snapshot> [published project]");
     return 2;
 }
 
@@ -57,7 +77,6 @@ void CheckIdentities(string project, string owner, IReadOnlyList<CardSeries> ser
     string path = Path.Combine(project, "series-identities.json");
     if (!checkCore && !writeIdentities && !File.Exists(path)) return;
 
-    // The native save stores both item IDs and sprite paths. Display text and card order may change independently.
     var snapshot = new
     {
         ownerId = owner,
@@ -68,16 +87,28 @@ void CheckIdentities(string project, string owner, IReadOnlyList<CardSeries> ser
             packSlots = CardGame.GeneratePack(new Random(0), set.PackKind, factory: true).contents.Count,
             packSprite = set.PackSprite,
             albumSprite = set.AlbumSprite,
+            albumOrder = set.CardIds,
             cards = set.CardIds.Order().ToDictionary(id => id, id => set.Cards[id].Art)
         })
     };
-    string json = JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = true });
+    var current = JsonSerializer.SerializeToNode(snapshot);
+    if (checkCore)
+    {
+        var legends = current["series"].AsArray().Single(set => (string)set["key"] == "station_legends");
+        legends["fatPackSlots"] = StationLegends.SlotCount(PackKind.Fat);
+        legends["slimBoxPacks"] = StationLegends.BoxCount(PackKind.Slim);
+        legends["fatBoxPacks"] = StationLegends.BoxCount(PackKind.Fat);
+    }
+    var previous = File.Exists(path)
+        ? JsonNode.Parse(File.ReadAllText(path)) ?? throw new InvalidDataException($"{path} 缺少已发布的标识记录。")
+        : null;
+    if (previous != null) PublishedIdentities.Check(previous, current, legacyProject);
     if (writeIdentities)
     {
         string temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {
-            File.WriteAllText(temporary, json + "\n");
+            File.WriteAllText(temporary, current.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + "\n");
             File.Move(temporary, path, overwrite: true);
         }
         finally
@@ -88,6 +119,6 @@ void CheckIdentities(string project, string owner, IReadOnlyList<CardSeries> ser
         return;
     }
 
-    if (!File.Exists(path) || !JsonNode.DeepEquals(JsonNode.Parse(File.ReadAllText(path)), JsonNode.Parse(json)))
-        throw new InvalidDataException($"卡辑存档标识与 {path} 不一致。若有意新增或变更标识，请用 -p:UpdateSeriesIdentities=true 构建并审查清单差异。");
+    if (!JsonNode.DeepEquals(previous, current))
+        throw new InvalidDataException($"请用 -p:UpdateSeriesIdentities=true 记录新增内容或升级 {path}。");
 }

@@ -3,9 +3,13 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
+    <RequiresGameAssemblies Condition="'$(IdentityOnly)' == 'true'">false</RequiresGameAssemblies>
     <TradingCardsDll Condition="'$(TradingCardsDll)' == ''">$(MSBuildThisFileDirectory)..\..\ProbablyTradingCards\dist\ProbablyTradingCards\ProbablyTradingCards.dll</TradingCardsDll>
   </PropertyGroup>
-  <ItemGroup>
+  <ItemGroup Condition="'$(IdentityOnly)' == 'true'">
+    <ProjectReference Include="../../tests/Smoke/Smoke.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(IdentityOnly)' != 'true'">
     <Reference Include="ProbablyTradingCards"><HintPath>$(TradingCardsDll)</HintPath></Reference>
     <Reference Include="Newtonsoft.Json"><HintPath>$(GameDir)\Probably Stolen_Data\Managed\Newtonsoft.Json.dll</HintPath></Reference>
   </ItemGroup>
