@@ -110,7 +110,11 @@ namespace ProbablyTradingCards
 
         private sealed class SpotlightReveal
         {
-            internal const float Duration = 0.84f;
+            internal const float Duration = 2.30f;
+            private const float FocusInDuration = 0.30f;
+            private const float FocusOutDuration = 0.30f;
+            private const float SweepStart = 0.32f;
+            private const float SweepEnd = 0.80f;
             private readonly RectTransform brackets;
             private readonly CanvasGroup bracketOpacity;
             private readonly RectTransform light;
@@ -141,21 +145,21 @@ namespace ProbablyTradingCards
                 Paint(light, "inspection_highlight", new Vector2(5, 285), Vector2.zero, new Color32(235, 244, 224, 114));
             }
 
-            internal static float FocusAt(float age) => Mathf.SmoothStep(0f, 1f, age / 0.21f) *
-                Mathf.SmoothStep(0f, 1f, (Duration - age) / 0.24f);
+            internal static float FocusAt(float age) => Mathf.SmoothStep(0f, 1f, age / FocusInDuration) *
+                Mathf.SmoothStep(0f, 1f, (Duration - age) / FocusOutDuration);
 
             internal void Draw(float age, float lift)
             {
                 bool visible = age >= 0f && age < Duration;
                 brackets.gameObject.SetActive(visible);
-                light.gameObject.SetActive(visible);
+                light.gameObject.SetActive(age >= SweepStart && age < SweepEnd);
                 if (!visible) return;
 
-                brackets.localScale = Vector3.one * (1.38f - 0.12f * Mathf.InverseLerp(0.12f, 0.28f, age));
+                brackets.localScale = Vector3.one * (1.38f - 0.12f * Mathf.InverseLerp(0.12f, SweepStart, age));
                 brackets.anchoredPosition = Vector2.up * (5f * lift);
                 bracketOpacity.alpha = lift;
 
-                float sweep = Mathf.InverseLerp(0.20f, 0.61f, age);
+                float sweep = Mathf.InverseLerp(SweepStart, SweepEnd, age);
                 light.anchoredPosition = Vector2.right * Mathf.Lerp(-143f, 143f, sweep);
                 lightOpacity.alpha = Mathf.Sin(sweep * Mathf.PI);
             }
