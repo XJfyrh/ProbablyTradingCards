@@ -1,4 +1,4 @@
-"""Render the mod's original card sound effects as mono PCM WAV files."""
+"""Render the prototype card sound effects for comparison."""
 
 from array import array
 from math import exp, sin, tau
@@ -9,7 +9,7 @@ import wave
 
 
 SAMPLE_RATE = 44_100
-OUTPUT = Path(__file__).resolve().parents[1] / "ProbablyTradingCards" / "Sounds"
+OUTPUT = Path(__file__).resolve().parents[1] / "artifacts" / "synthesized-card-sounds"
 
 
 class Sound:

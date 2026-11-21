@@ -10,9 +10,11 @@ namespace ProbablyTradingCards
     internal sealed class PackReveal : MonoBehaviour
     {
         internal const string WindowId = ModEntry.ModId + ".pack_reveal";
-        private const float OpenAt = 0.14f;
-        private const float FinishAt = 1.05f;
-        private static readonly float[] RevealAt = { 0.43f, 0.60f, 0.94f };
+        private const float OpenAt = 0.22f;
+        private const float WrapperAwayAt = 0.61f;
+        private const float FinishAt = 1.54f;
+        private const float RareSweepDuration = 0.34f;
+        private static readonly float[] RevealAt = { 0.62f, 0.89f, 1.36f };
         private static readonly int[] TearDepths = { 20, 25, 22, 28, 24 };
         private static readonly Color Plain = new Color32(118, 101, 106, 255);
         private static readonly Color Rare = new Color32(135, 193, 188, 255);
@@ -56,38 +58,106 @@ namespace ProbablyTradingCards
             internal GameObject Back;
             internal Image Face;
             internal Image Border;
-            internal Image Glint;
-            internal GameObject Text;
+            internal Image RareSweep;
+            internal CanvasGroup Opacity;
+            internal SpotlightReveal Spotlight;
+            internal CanvasGroup Caption;
             internal Button Button;
             internal int Rank;
             internal bool Turned;
 
-            internal bool Draw(float elapsed, float at, float x)
+            internal bool Draw(float elapsed, float at, float x, float focus)
             {
-                float travel = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(at - 0.23f, at + 0.06f, elapsed));
+                float travel = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(at - 0.31f, at + 0.08f, elapsed));
+                float age = elapsed - at;
+                float lift = Spotlight != null ? SpotlightReveal.FocusAt(age) : 0f;
                 Root.gameObject.SetActive(travel > 0f);
-                Root.anchoredPosition = new Vector2(x * travel, Mathf.Lerp(-56f, 31f, travel));
+                Root.anchoredPosition = new Vector2(x * travel * (1f - lift), Mathf.Lerp(-56f, 31f, travel));
                 Root.localScale = Vector3.one * Mathf.Lerp(0.55f, 1f, travel);
-                float turn = Mathf.InverseLerp(at - 0.07f, at + 0.07f, elapsed);
-                Surface.localScale = new Vector3(Mathf.Max(0.04f, Mathf.Abs(Mathf.Cos(turn * Mathf.PI))), 1f, 1f);
+                float turn = Mathf.InverseLerp(-0.10f, 0.10f, age);
+                float rareBounce = RareSweep != null ? Mathf.Sin(Mathf.Clamp01(age / RareSweepDuration) * Mathf.PI) : 0f;
+                float scale = 1f + 0.26f * lift + 0.045f * rareBounce;
+                float width = Mathf.Max(0.04f, Mathf.Abs(Mathf.Cos(turn * Mathf.PI)));
+                Surface.localScale = new Vector3(scale * width, scale, 1f);
+                Surface.anchoredPosition = Vector2.up * (5f * lift + 4f * rareBounce);
+                if (Spotlight != null)
+                    ((RectTransform)Caption.transform).anchoredPosition = Vector2.down * (145f + 20f * lift);
+                else
+                    Caption.alpha = 1f - Mathf.InverseLerp(0.05f, 0.25f, focus);
+                Opacity.alpha = Spotlight != null ? 1f : 1f - 0.64f * focus;
                 bool justTurned = !Turned && turn >= 0.5f;
                 if (justTurned)
                 {
                     Turned = true;
                     Back.SetActive(false);
                     Face.gameObject.SetActive(true);
-                    Text.SetActive(true);
+                    Caption.gameObject.SetActive(true);
                 }
 
-                float shine = Mathf.InverseLerp(at, at + 0.24f, elapsed);
                 if (Turned && Rank > 0)
-                    Border.color = Color.Lerp(Color.white, Rank == 1 ? Rare : SuperRare, shine);
-                if (Rank == 2)
+                    Border.color = Color.Lerp(Color.white, Rank == 1 ? Rare : SuperRare, Mathf.Clamp01(age / 0.26f));
+                if (RareSweep != null)
                 {
-                    Glint.enabled = Turned && shine < 1f;
-                    Glint.rectTransform.anchoredPosition = new Vector2(Mathf.Lerp(-106f, 106f, shine), 0f);
+                    RareSweep.enabled = age >= 0f && age < RareSweepDuration;
+                    RareSweep.rectTransform.anchoredPosition =
+                        Vector2.up * Mathf.Lerp(-112f, 112f, age / RareSweepDuration);
+                    RareSweep.color = new Color(0.55f, 0.91f, 0.93f, 0.40f * rareBounce);
                 }
+                Spotlight?.Draw(age, lift);
                 return justTurned;
+            }
+        }
+
+        private sealed class SpotlightReveal
+        {
+            internal const float Duration = 0.84f;
+            private readonly RectTransform brackets;
+            private readonly CanvasGroup bracketOpacity;
+            private readonly RectTransform light;
+            private readonly CanvasGroup lightOpacity;
+
+            internal SpotlightReveal(RectTransform root, Image art, Vector2 size)
+            {
+                brackets = MakeRect(root, "inspection_brackets", size + new Vector2(18, 13), Vector2.zero);
+                bracketOpacity = brackets.gameObject.AddComponent<CanvasGroup>();
+                Vector2 halfSize = brackets.sizeDelta / 2f;
+                var illuminated = new Color32(157, 231, 222, 245);
+                for (int x = -1; x <= 1; x += 2)
+                    for (int y = -1; y <= 1; y += 2)
+                    {
+                        var corner = new Vector2(x * halfSize.x, y * halfSize.y);
+                        Paint(brackets, "bracket-horizontal", new Vector2(17, 3),
+                            corner - Vector2.right * (x * 7f), illuminated);
+                        Paint(brackets, "bracket-vertical", new Vector2(3, 17),
+                            corner - Vector2.up * (y * 7f), illuminated);
+                    }
+
+                art.gameObject.AddComponent<RectMask2D>();
+                light = MakeRect(art.rectTransform, "inspection_light", new Vector2(63, 285), Vector2.zero);
+                light.localRotation = Quaternion.Euler(0, 0, -12);
+                lightOpacity = light.gameObject.AddComponent<CanvasGroup>();
+                Paint(light, "inspection_soft_light", new Vector2(63, 285), Vector2.zero, new Color32(187, 217, 216, 42));
+                Paint(light, "inspection_inner_light", new Vector2(24, 285), Vector2.zero, new Color32(215, 228, 217, 66));
+                Paint(light, "inspection_highlight", new Vector2(5, 285), Vector2.zero, new Color32(235, 244, 224, 114));
+            }
+
+            internal static float FocusAt(float age) => Mathf.SmoothStep(0f, 1f, age / 0.21f) *
+                Mathf.SmoothStep(0f, 1f, (Duration - age) / 0.24f);
+
+            internal void Draw(float age, float lift)
+            {
+                bool visible = age >= 0f && age < Duration;
+                brackets.gameObject.SetActive(visible);
+                light.gameObject.SetActive(visible);
+                if (!visible) return;
+
+                brackets.localScale = Vector3.one * (1.38f - 0.12f * Mathf.InverseLerp(0.12f, 0.28f, age));
+                brackets.anchoredPosition = Vector2.up * (5f * lift);
+                bracketOpacity.alpha = lift;
+
+                float sweep = Mathf.InverseLerp(0.20f, 0.61f, age);
+                light.anchoredPosition = Vector2.right * Mathf.Lerp(-143f, 143f, sweep);
+                lightOpacity.alpha = Mathf.Sin(sweep * Mathf.PI);
             }
         }
 
@@ -106,6 +176,8 @@ namespace ProbablyTradingCards
         private bool playedOpening;
         private bool finished;
         private float startedAt;
+        private float superRareAt = float.PositiveInfinity;
+        private float finishAt = FinishAt;
 
         internal static bool TryShow(Result result)
         {
@@ -182,6 +254,13 @@ namespace ProbablyTradingCards
                     pocket.childItems.Count == 0 && pocket.mayInventoryAddItemFunc(card.Item, pocket));
                 if (fillsSlot) marked.Add(card.Definition);
                 cards[index] = BuildCard(card, faces[index], pack, fillsSlot);
+                if (cards[index].Spotlight != null)
+                {
+                    superRareAt = Mathf.Min(superRareAt, RevealAt[index]);
+                    finishAt = Mathf.Max(finishAt, RevealAt[index] + SpotlightReveal.Duration);
+                }
+                else if (cards[index].RareSweep != null)
+                    finishAt = Mathf.Max(finishAt, RevealAt[index] + RareSweepDuration);
                 HideCard(card.Item);
             }
 
@@ -242,10 +321,13 @@ namespace ProbablyTradingCards
 
             var art = Paint(surface, "card_face", cardSize, Vector2.zero, Color.white);
             art.sprite = face;
-            art.gameObject.AddComponent<RectMask2D>();
-            var glint = Paint(art.rectTransform, "card_reflection", new Vector2(23, 310), Vector2.zero, new Color32(255, 231, 181, 65));
-            glint.rectTransform.localRotation = Quaternion.Euler(0, 0, -25);
-            glint.enabled = false;
+            Image rareSweep = null;
+            if (rank == 1)
+            {
+                art.gameObject.AddComponent<RectMask2D>();
+                rareSweep = Paint(art.rectTransform, "rare_sweep", new Vector2(cardSize.x, 12), Vector2.zero, Rare);
+            }
+            var spotlight = rank == 2 ? new SpotlightReveal(root, art, cardSize) : null;
             art.gameObject.SetActive(false);
 
             var caption = MakeRect(root, "card_details", new Vector2(180, 64), new Vector2(0, -145));
@@ -260,7 +342,8 @@ namespace ProbablyTradingCards
             return new RevealedCard
             {
                 Root = root, Surface = surface, Back = back.gameObject, Face = art, Border = border,
-                Glint = glint, Text = caption.gameObject, Button = button, Rank = rank
+                Opacity = root.gameObject.AddComponent<CanvasGroup>(), RareSweep = rareSweep, Spotlight = spotlight,
+                Caption = caption.gameObject.AddComponent<CanvasGroup>(), Button = button, Rank = rank
             };
         }
 
@@ -346,7 +429,7 @@ namespace ProbablyTradingCards
             }
             float elapsed = Time.unscaledTime - startedAt;
             Draw(elapsed, true);
-            if (elapsed >= FinishAt) Finish();
+            if (elapsed >= finishAt) Finish();
         }
 
         private void Advance()
@@ -357,7 +440,7 @@ namespace ProbablyTradingCards
 
         private void Finish()
         {
-            Draw(FinishAt + 0.24f, false);
+            Draw(finishAt + 0.01f, false);
             finished = true;
             foreach (var card in cards) card.Button.interactable = true;
             outcome.SetText(resealed ? "封边残留旧胶 · 这包重新封过" : "");
@@ -366,12 +449,12 @@ namespace ProbablyTradingCards
 
         private void Draw(float elapsed, bool playAudio)
         {
-            float opened = Mathf.InverseLerp(OpenAt, 0.39f, elapsed);
+            float opened = Mathf.InverseLerp(OpenAt, WrapperAwayAt, elapsed);
             wrapper.gameObject.SetActive(opened < 1f);
             wrapper.anchoredPosition = new Vector2(0f, Mathf.SmoothStep(-20f, 8f, elapsed / OpenAt) - 22f * opened);
             seal.anchoredPosition = new Vector2((withCutter ? 38f : 57f) * opened, 26f * opened);
             seal.localRotation = Quaternion.Euler(0f, 0f, (withCutter ? -5f : -18f) * opened);
-            wrapperOpacity.alpha = 1f - Mathf.InverseLerp(0.24f, 0.39f, elapsed);
+            wrapperOpacity.alpha = 1f - Mathf.InverseLerp(OpenAt + 0.14f, WrapperAwayAt, elapsed);
             if (playAudio && !playedOpening && elapsed >= OpenAt)
             {
                 playedOpening = true;
@@ -380,8 +463,9 @@ namespace ProbablyTradingCards
             }
 
             int cue = -1;
+            float focus = SpotlightReveal.FocusAt(elapsed - superRareAt);
             for (int index = 0; index < cards.Length; index++)
-                if (cards[index].Draw(elapsed, RevealAt[index], (index - 1) * 188f))
+                if (cards[index].Draw(elapsed, RevealAt[index], (index - 1) * 188f, focus))
                     cue = Mathf.Max(cue, cards[index].Rank);
             if (!playAudio || cue < 0) return;
             CardSounds.Land();
