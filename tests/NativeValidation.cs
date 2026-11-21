@@ -161,9 +161,9 @@ namespace ProbablyTradingCards
             };
             ValidationCleanup.Run(() =>
             {
-                // EncodeItem and inspecting an alternate both write to the currently loaded store.
                 store.savedItemFeatureList = new List<ItemFeature>();
                 store.modData = new Dictionary<string, string>(savedModData);
+                NativeBountyChecks.Run(check, temporary, windows);
                 GameItem album = DirectoryMaster.Item(NativeItems.AlbumId);
                 temporary.Add(album);
                 GeneralHelper.SetItemOwned(album);
@@ -348,7 +348,6 @@ namespace ProbablyTradingCards
                 "long card name fits the album caption with wrapping");
             GeneralHelper.SetItemOwned(album);
             var legends = CardGame.Series.ForPack(PackKind.Slim);
-            // Eight-pocket spreads place their third card on the left leaf and fifth on the right.
             int leftId = legends.CardIds.Where(id => !legends.Cards[id].IsAlternate && legends.Cards[id].Rarity == "C").ElementAt(2);
             int rightId = legends.CardIds.Where(id => !legends.Cards[id].IsAlternate && legends.Cards[id].Rarity == "UR").ElementAt(4);
             var ordinary = Create(NativeItems.CardId(rightId, 2));
@@ -799,13 +798,13 @@ namespace ProbablyTradingCards
 
         private static string PlaceDistributorOrder(StoreClient client, int option)
         {
+            PlayerStore.Instance.currentClientInstance = StoreClientInstance.CreateClientInstance(client);
             var page = client.mainDialogue;
             if (page.choices.Count == 0)
             {
                 page.ExecuteEndAction();
                 return "";
             }
-            // 每页前两个是商品；若还有更多系列，第三个选项打开下一页。
             while (option >= 2)
             {
                 page = page.choices[2].Item2.nextDialogue;
@@ -966,7 +965,6 @@ namespace ProbablyTradingCards
 
                 store.currentClientInstance = null;
                 foreach (GameItem item in front.childItems.ToList()) item.Destroy();
-                // Rebuild the manager with the same in-memory modData to check same-week suppression.
                 manager = store.storeClientManager = new StoreClientManager();
                 StoreStation.Instance.dayCounter = 28;
                 BranchAlternateSeller.Queue(manager);
@@ -1042,7 +1040,6 @@ namespace ProbablyTradingCards
                     "actual scalper cleanup restores manager, run ID, cash and player state after a destroy failure");
             }, cleanup =>
             {
-                // Restore independently so a regression in the scenario cannot strand the player's state.
                 cleanup.Attempt("restore cleanup probe inventory", () => entry.invElement = originalInventory);
                 cleanup.Each("restore cleanup probe player field", fields, saved => saved.field.SetValue(store, saved.value));
                 cleanup.Each("restore cleanup probe counter", inventories, saved => saved.property.SetValue(entry, saved.value));
@@ -1305,15 +1302,24 @@ namespace ProbablyTradingCards
             var entry = EmporiumEntry.Instance;
             var originalManager = store.storeClientManager;
             var originalClient = store.currentClientInstance;
+            var originalNegotiated = store.currentNegociatedItem;
+            var originalInventory = entry.invElement;
+            var originalStats = store.runStats;
+            var originalReputations = store.storeReputations;
+            var originalState = store.storeState;
+            int originalCash = store.GetCash();
+            int originalFavor = store.wildFavor;
             var originalFront = entry.frontInvinvElement;
             var originalBack = entry.backInvinvElement;
             int originalDay = StoreStation.GetDayCounter();
             var front = new GameGridInventory(18, 4);
             var back = new GameGridInventory(6, 3);
+            var inventory = new GameGridInventory(12, 4);
             var window = new PixelWindow();
-            var layout = new GridPixelElement(2, 1);
+            var layout = new GridPixelElement(3, 1);
             layout.Attach(front, 0, 0);
             layout.Attach(back, 1, 0);
+            layout.Attach(inventory, 2, 0);
             window.Attach(layout);
             windows.Add(window);
             ValidationCleanup.Run(() =>
@@ -1525,6 +1531,28 @@ namespace ProbablyTradingCards
                     "night collector keeps its native faction and natural cooldown");
 
                 StoreStation.Instance.dayCounter = 2;
+                entry.invElement = inventory;
+                store.currentNegociatedItem = null;
+                store.runStats = new RunStats();
+                store.storeReputations = new List<StoreReputation>();
+                store.storeState = PlayerStore.StoreState.OPEN;
+
+                void BuyFromDistributor(GameItem offer, int price)
+                {
+                    check(!GeneralHelper.IsItemOwned(offer) && offer.parentInventory == front &&
+                        GraphUtils.TryAcceptAll(back, offer) == 0 && offer.parentInventory == back,
+                        "the distributor's unowned offer moves from the front counter to the negotiation table");
+                    store.currentNegociatedItem = offer;
+                    store.playerCash = price - 1;
+                    check(!store.CanBuyItemFromTable(), "one credit below the distributor quote blocks purchase");
+                    store.playerCash++;
+                    check(store.CanBuyItemFromTable(), "the distributor's quoted price is sufficient");
+                    store.BuyItemFromTable();
+                    check(store.GetCash() == 0 && GeneralHelper.IsItemOwned(offer) &&
+                        offer.GetTagReadonly("BOUGHT_PRICE_TAG").GetInt() == price,
+                        "the native purchase debits the quoted price and transfers the offered item to the player");
+                }
+
                 StoreClient distributor = CardCustomers.CreateDistributor();
                 check(SpriteDict.Instance.spriteDictionary.ContainsKey(distributor.GetSprite()), "distributor portrait resolves to a native sprite");
                 check(!distributor.isBargainAvailable && !distributor.acceptRetailMarkup, "distributor uses fixed-price native trade");
@@ -1536,15 +1564,12 @@ namespace ProbablyTradingCards
                     GameItem pack = front.childItems.First(item => item.identifier == NativeItems.PackId);
                     CardPack data = NativeItems.ReadPack(pack);
                     check(!data.resealed && pack.GetBaseValue() == CardGame.PackValue(PackKind.NightStories), "distributor genuine supply retains normal base appraisal");
-                    check(pack.GetNegociatedValue() == 48, "native distributor price includes the 20 percent premium");
+                    check(pack.GetNegociatedValue() == 48 && pack.FindItemFeatureByID(CardCustomers.DistributorPremiumId) != null,
+                        "native distributor price includes the 20 percent premium");
                     GameItem restoredOffer = RoundTripItem(pack);
                     temporary.Add(restoredOffer);
                     check(restoredOffer.GetNegociatedValue() == 48 && !NativeItems.ReadPack(restoredOffer).resealed, "saved offer retains price and genuine contents");
-                    GraphUtils.TryAcceptAll(back, pack);
-                    distributor.OnItemSold(pack, 48);
-                    // PlayerStore.OnItemBought uses this ownership change and native feature cleanup.
-                    GeneralHelper.SetItemOwned(pack);
-                    pack.RemoveFeatureTemporaryBuying();
+                    BuyFromDistributor(pack, 48);
                     check(pack.GetNegociatedValue() == CardGame.PackValue(PackKind.NightStories) && pack.FindItemFeatureByID(CardCustomers.DistributorPremiumId) == null, "native purchase cleanup removes the supplier premium");
                     check(JsonConvert.SerializeObject(data) == JsonConvert.SerializeObject(NativeItems.ReadPack(pack)), "purchase preserves hidden contents and tear rolls");
                     GameItem restoredPurchase = RoundTripItem(pack);
@@ -1556,7 +1581,7 @@ namespace ProbablyTradingCards
                     pack.Destroy();
                 }
                 GameItem album = front.childItems.Single(item => item.identifier == NativeItems.AlbumId);
-                distributor.OnItemSold(album, 24);
+                BuyFromDistributor(album, (int)album.GetNegociatedValue());
                 album.Destroy();
                 check(front.childItems.Count == 0, "album and pack quotas stop each SKU from replenishing");
                 distributor = CardCustomers.CreateDistributor();
@@ -1585,8 +1610,7 @@ namespace ProbablyTradingCards
                     for (int count = 0; count < quota; count++)
                     {
                         GameItem purchase = front.childItems.Single(item => item.identifier == testedSku);
-                        GraphUtils.TryAcceptAll(back, purchase);
-                        distributor.OnItemSold(purchase, (int)purchase.GetNegociatedValue());
+                        BuyFromDistributor(purchase, (int)purchase.GetNegociatedValue());
                         purchase.Destroy();
                     }
                     check(front.childItems.All(item => item.identifier != testedSku),
@@ -1619,11 +1643,9 @@ namespace ProbablyTradingCards
                     check(front.childItems.Count == 2 && !NativeItems.ReadPack(packOffer).resealed &&
                         packOffer.GetNegociatedValue() == Math.Round(packOffer.GetBaseValue() * 1.2) &&
                         albumOffer.GetNegociatedValue() == albumOffer.GetBaseValue(), "expansion order uses its own shelf and prices");
-                    GraphUtils.TryAcceptAll(back, albumOffer);
-                    distributor.OnItemSold(albumOffer, (int)albumOffer.GetNegociatedValue());
+                    BuyFromDistributor(albumOffer, (int)albumOffer.GetNegociatedValue());
                     albumOffer.Destroy();
-                    GraphUtils.TryAcceptAll(back, packOffer);
-                    distributor.OnItemSold(packOffer, (int)packOffer.GetNegociatedValue());
+                    BuyFromDistributor(packOffer, (int)packOffer.GetNegociatedValue());
                     packOffer.Destroy();
                     check(front.childItems.Count == 1 && front.childItems.Single().identifier == packId,
                         "expansion sale replenishes its pack and limits its album to one per visit");
@@ -1642,11 +1664,21 @@ namespace ProbablyTradingCards
                     !StoreClientListDict.storeClientDict.ContainsKey(CardCustomers.DistributorId), "disable removes supplier factories");
             }, cleanup =>
             {
-                cleanup.Each("destroy customer fixture item", front.childItems.Concat(back.childItems), DestroyTemporaryItem);
+                cleanup.Each("destroy customer fixture item", front.childItems.Concat(back.childItems).Concat(inventory.childItems), DestroyTemporaryItem);
                 cleanup.Attempt("restore customer manager", () =>
                 {
                     store.storeClientManager = originalManager;
                     store.currentClientInstance = originalClient;
+                });
+                cleanup.Attempt("restore distributor purchase state", () =>
+                {
+                    entry.invElement = originalInventory;
+                    store.currentNegociatedItem = originalNegotiated;
+                    store.runStats = originalStats;
+                    store.storeReputations = originalReputations;
+                    store.storeState = originalState;
+                    store.playerCash = originalCash;
+                    store.wildFavor = originalFavor;
                 });
                 cleanup.Attempt("restore customer front inventory", () =>
                     AccessTools.Property(typeof(EmporiumEntry), "frontInvinvElement").SetValue(entry, originalFront));
@@ -1672,7 +1704,6 @@ namespace ProbablyTradingCards
             GameItem restored = SaveManager.DecodeNodes(saveItems);
             try
             {
-                // Features live outside SaveItemNode; reattach by uniqueId as PlayerStore.LoadGame does.
                 var items = GraphUtils.FindAllChildrenType<GameItem>(restored).Append(restored).ToDictionary(child => child.uniqueId);
                 foreach (GameItem child in items.Values) child.RemoveAllFeature();
                 foreach (ItemFeature feature in ES3.Deserialize<List<ItemFeature>>(features))
@@ -1903,7 +1934,6 @@ namespace ProbablyTradingCards
             const int alternate = StationLegends.EleanorScav;
             try
             {
-                // The fixture keeps effective luck at zero even in a save carrying the Gambler's Coin.
                 store.healthData = new HealthData { luck = -LotteryHelper.GetCarriedLuckBonus() };
                 store.storeClientData = new StoreClientData { eleanorDriveChoice = 1, eleanorConclusionDay = openingDay };
                 store.modData = new Dictionary<string, string>();

@@ -26,7 +26,6 @@ internal static class PublishedIdentities
                 throw new InvalidDataException($"{key} 已发布收藏簿的卡位顺序发生变化。请将新卡追加到 cards 末尾。");
             if ((string)published["ownerId"] == "probably_trading_cards" && key == "station_legends")
             {
-                // v0.7.0 recorded the slim pack only. Its unopened fat packs and boxes use these capacities.
                 foreach (var (field, capacity) in new[] { ("fatPackSlots", 9), ("slimBoxPacks", 12), ("fatBoxPacks", 6) })
                     RequireEqual(key, field, old["albumOrder"] == null ? JsonValue.Create(capacity) : old[field], next[field]);
             }

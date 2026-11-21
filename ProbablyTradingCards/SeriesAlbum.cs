@@ -47,7 +47,6 @@ namespace ProbablyTradingCards
                 label.color = color;
                 if (fixedHeight == 0) return;
 
-                // TagElement.SetText resets wrapping on every write.
                 label.enableWordWrapping = true;
                 label.overflowMode = TextOverflowModes.Ellipsis;
                 Rect bounds = label.rectTransform.rect;
@@ -119,7 +118,6 @@ namespace ProbablyTradingCards
         private static void StylePocket(GameGridInventory pocket, Sprite art)
         {
             pocket.rectTransform.localScale = new Vector3(PocketScale, PocketScale, 1);
-            // GridPixelElement centers using the inventory's unscaled bounds.
             pocket.rectTransform.anchoredPosition +=
                 new Vector2(-pocket.widthPixels, pocket.heightPixels) * ((PocketScale - 1) / 2);
             if (art == null) return;

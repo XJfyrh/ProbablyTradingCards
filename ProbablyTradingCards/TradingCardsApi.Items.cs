@@ -4,7 +4,6 @@ namespace ProbablyTradingCards
 {
     public static partial class TradingCardsApi
     {
-        /// <summary>Identify a registered physical single and its wear (0 creased, 1 worn, 2 mint).</summary>
         public static bool TryGetCard(GameItem item, out CardDefinition card, out int condition)
         {
             card = null;

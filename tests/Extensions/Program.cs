@@ -53,7 +53,6 @@ static void Run(string root)
     dockProvider.Init(dockManifest);
     bounty.Init(bountyManifest);
 
-    // A mechanics mod can run with just the base game content, before any external set exists.
     bounty.OnEnable();
     Require(!TradingCardsApi.TryGetSeries(dockManifest.ID, "dock_demo", out _), "content leaked into the base DLL");
     try
@@ -108,7 +107,6 @@ static void Run(string root)
 
 static GameItem Single(CardDefinition card, int condition, int uniqueId)
 {
-    // Headless equivalent of the identity tags on a physical card returned by the native factory.
     var item = (GameItem)RuntimeHelpers.GetUninitializedObject(typeof(GameItemElement));
     item.identifier = NativeItems.CardId(card.Id, condition);
     item.uniqueId = uniqueId;

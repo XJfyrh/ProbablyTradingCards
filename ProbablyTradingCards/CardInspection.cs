@@ -9,9 +9,7 @@ namespace ProbablyTradingCards
 
         internal static void Configure(GameItem item, int definition, int condition)
         {
-            // GeneralHelper.MayInteractNonOwnedActivate 允许查看未拥有的非彩票 DOCUMENT。
             item.EnableTag("DOCUMENT");
-            // 默认激活处理器会截获点击；普通激活保留原版拖拽和单击/双击设置。
             item.activateDefault = false;
             item.mayActivateSlotItemFunc = (_, __, ___) => true;
             item.canActivateSlotItemFunc = (_, __, ___) => true;

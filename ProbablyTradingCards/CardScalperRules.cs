@@ -50,7 +50,6 @@ namespace ProbablyTradingCards
 
         internal static int SinglePrice(CardDefinition card) => card.Value * 3;
 
-        // 同一存档、同一周和同一规格使用相同的货，开店前读档也不会换掉封口或卡面。
         internal static Random StockRandom(string runId, int week, int slot)
         {
             unchecked

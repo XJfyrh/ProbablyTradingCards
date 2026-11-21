@@ -23,7 +23,6 @@ namespace ProbablyTradingCards
         {
             if (session != null || !DevTools.IsEnabled) return;
             session = Guid.NewGuid().ToString("N");
-            // The loader records an IMod as running after OnEnable returns.
             ModHook.OnModAssetsLoaded += OnAssetsLoaded;
             if (ModHelper.IsModRunning(Owner)) Start();
         }
@@ -96,7 +95,6 @@ namespace ProbablyTradingCards
                 data["state"] = "menu";
                 return data;
             }
-            // Inspect HasInstance first; PlayerStore.Instance creates a player when there isn't one.
             if (!PlayerStore.HasInstance || PlayerStore.Instance.saveSlotId < 0 || string.IsNullOrEmpty(PlayerStore.Instance.runID) ||
                 EmporiumEntry.Instance == null || EmporiumEntry.Instance.invWindow == null ||
                 StoreUIManager.Instance == null || CustomUIManager.Instance == null ||
@@ -150,7 +148,6 @@ namespace ProbablyTradingCards
                 result["error"] = error.ToString();
                 ModEntry.Log.Error("Agent validation " + id + ": " + error);
             }
-            // If the CLI holds the result file briefly, retry the write without repeating the scenario.
             pendingResult = result.ToString(Formatting.None);
         }
 

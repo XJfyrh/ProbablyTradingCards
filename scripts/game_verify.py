@@ -25,7 +25,6 @@ def read_json(path):
         value = json.loads(path.read_text(encoding="utf-8-sig"))
         return value if isinstance(value, dict) else None
     except (FileNotFoundError, PermissionError, ValueError):
-        # The game's ModHelper can be partway through writing this file.
         return None
 
 
@@ -50,7 +49,6 @@ def audit(data_dir, required):
     try:
         with path.open(encoding="utf-8-sig", errors="replace") as stream:
             for line in stream:
-                # Keep records from one loader audit, even if logging was appended.
                 if "[ModLoader] audit: game " in line:
                     mods.clear()
                 match = AUDIT.search(line)
@@ -75,7 +73,6 @@ class Blocked(Exception):
 
 @contextmanager
 def client_lock(folder):
-    # The OS releases the byte lock if an agent exits mid-run.
     with (folder / "client.lock").open("a+b") as handle:
         if handle.tell() == 0:
             handle.write(b"0")
@@ -169,7 +166,6 @@ def main():
             code, result = live_action(args.data_dir / "ModData" / CORE / "agent", args)
     except (OSError, Blocked) as error:
         code, result = 2, dict(status="blocked", error=str(error))
-    # A stable UTF-8 encoding also works in agents which capture a Windows pipe.
     sys.stdout.reconfigure(encoding="utf-8")
     print(json.dumps(result, ensure_ascii=False))
     return code

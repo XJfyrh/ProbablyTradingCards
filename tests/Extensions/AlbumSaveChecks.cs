@@ -33,7 +33,6 @@ internal static class AlbumSaveChecks
             new() { uuid = 21, identifier = NativeItems.CardId(ticket, 1) },
             new() { uuid = 22, identifier = NativeItems.CardId(courier, 2) } };
 
-        // An additional spread is numbered before the old pockets in the game's breadth-first save graph.
         var nextFirst = Pocket();
         var nextSecond = Pocket();
         var nextAlbum = Album(nextFirst, nextSecond, Pocket());

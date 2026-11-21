@@ -94,7 +94,6 @@ namespace ProbablyTradingCards
         {
             private static void Postfix(StoreClient __result)
             {
-                // The game builds the funded farewell only after the player picks a loan amount.
                 var choices = LastLine(__result.mainDialogue);
                 var original = choices.startAction;
                 choices.SetStartAction(() =>

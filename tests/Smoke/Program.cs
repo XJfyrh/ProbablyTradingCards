@@ -344,7 +344,6 @@ Check(!StationLegends.InWindow(8, 6, 14) && StationLegends.InWindow(9, 6, 14) &&
     StationLegends.InWindow(22, 6, 14) && !StationLegends.InWindow(23, 6, 14), "window starts no earlier than release");
 Check(StationLegends.InWindow(36, 23, 14) && !StationLegends.InWindow(37, 23, 14) &&
     !StationLegends.InWindow(23, -1, 14), "story window includes first day and excludes end");
-// Use the author's sample verbatim, independently of which series this checkout ships.
 using var exampleReader = new StreamReader(typeof(CardGame).Assembly.GetManifestResourceStream("examples/dock_demo.json"));
 string exampleJson = exampleReader.ReadToEnd();
 var sample = JObject.Parse(exampleJson);
@@ -399,7 +398,6 @@ other["packKind"] = (int)demo.PackKind;
 Reject(() => MakeRegistry(new[] { ("dock_demo", exampleJson), ("dock_neighbor", other.ToString()) }),
     "duplicate pack kind across two series");
 
-// Register the independent author's content through the same entry point as the built-ins.
 var live = TradingCardsApi.RegisterSeries("dock_letters", "dock_demo", exampleJson);
 var neighbor = TradingCardsApi.RegisterSeries("other_author", "dock_demo", exampleJson);
 Check(live.PackKind != neighbor.PackKind && !live.CardIds.Intersect(neighbor.CardIds).Any(),

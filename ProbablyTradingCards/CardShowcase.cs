@@ -146,7 +146,6 @@ namespace ProbablyTradingCards
                 daily.Day = day;
                 daily.Rolled = false;
                 daily.Offers = Calculate(generating, trackerAlreadyUpdated: true);
-                // HandleNormalClient 先递减冷却，再按列表顺序抽取；尾部条目只会在普通客流名额剩余时调用。
                 if (daily.Offers.Any(row => row.Chance > 0))
                 {
                     daily.FreeSlotChance = ChanceOfFreeSlot(generating.GetNormalCustomerCount(), __result);

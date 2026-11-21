@@ -59,7 +59,7 @@ class GameVerifyTest(unittest.TestCase):
     def finish(self, process, expected_code):
         output, errors = process.communicate(timeout=8)
         self.assertEqual(process.returncode, expected_code, output + errors)
-        result = json.loads(output)  # Disallow extra text and multiple JSON documents.
+        result = json.loads(output)
         self.assertIsInstance(result, dict)
         return result
 

@@ -53,7 +53,6 @@ namespace ProbablyTradingCards
             }
         }
 
-        // SaveManager numbers every non-item node breadth first, including the page grids before their pockets.
         private static Dictionary<GraphNodeStorage, int> InventoryNodeIndices(GameItem album)
         {
             var indices = new Dictionary<GraphNodeStorage, int>();

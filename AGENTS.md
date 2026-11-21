@@ -27,6 +27,7 @@
 
 ## Code Review Rules
 
+- 审查代码注释时使用仓库内的 [delete-comment 技能](.agents/skills/delete-comment/SKILL.md)。修改涉及原版游戏行为或验证工具的假设时，核对[实现决策](docs/development/实现决策.md)中对应的约束。
 - 新增卡或卡辑时按[新增卡辑](docs/development/新增卡辑.md)更新标识清单。有意改变已发布存档格式时，说明如何读取旧物品和原封包，并用旧版数据验证。[发布标识检查](tests/README.md#核对已发布的卡辑标识)
 - 标出改动跨模组公开接口或注册流程时对现有扩展的具体影响。以[外部模组接口](docs/development/外部模组接口.md)和独立扩展的验证结果核对兼容性。
 - 标出正式包夹带原版游戏程序集或原生验证代码的改动。使用 [发布指南](docs/release/README.md)中的 `./scripts/release.ps1` 生成和检查发布包，按实测更新 `GameVersions`。在任务包含发布时执行上传或调整可见性。

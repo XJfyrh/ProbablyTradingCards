@@ -18,8 +18,6 @@ internal static class BountyChecks
         try
         {
             var factory = StoreClientListDict.storeClientDict[BuyerId];
-            // The game draws the greeting through Unity's Canvas. Use the factory's real buyer,
-            // faction, filter and purchase callback, then leave the dialogue window to playtesting.
             var create = factory.Target.GetType().GetMethod("CreateOrder", BindingFlags.NonPublic | BindingFlags.Instance)
                 .CreateDelegate<Func<StoreClient>>(factory.Target);
             var editor = create();
@@ -30,7 +28,6 @@ internal static class BountyChecks
                 other.Series.OwnerId != external.Series.OwnerId, "buyer must accept multiple authors");
             Require(!editor.useClientBudget && !editor.IsRefusingLuxuryItem(otherCharacter), "buyer rejects high-value cards");
 
-            // willAcceptItem is the native preview filter. Closing a preview produces no OnItemBought.
             Require(editor.willAcceptItem(externalCharacter) && !editor.willAcceptItem(nonCharacter), "preview filter");
             Require(store.GetCash() == 0 && store.ModData().Count == 0, "preview changed the bounty");
             editor.OnItemBought(nonCharacter, 10);

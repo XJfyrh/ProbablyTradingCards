@@ -70,7 +70,6 @@ namespace CollectionBounty
             return editor;
         }
 
-        // 收购预览只读实体 ID。尚未分配 ID 的新卡可以报价，到成交时再分配。
         private int DeliverySlot(GameItem item)
         {
             if (!enabled || !TradingCardsApi.TryGetCard(item, out var card, out _) ||
@@ -90,7 +89,6 @@ namespace CollectionBounty
             if (slot == 0) return;
             ModHelper.SetModDataInt(modId, "delivered_" + slot, item.GetUniqueID());
             if (slot != RequiredCards) return;
-            // SellItem 已确定普通售价。清空买家预算会触发原版成交后的告别对话。
             PlayerStore.Instance.ModCash(Reward, playSound: false);
             editor.SetClientBudget(0);
         }

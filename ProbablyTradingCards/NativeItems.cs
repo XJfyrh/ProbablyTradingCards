@@ -87,7 +87,6 @@ namespace ProbablyTradingCards
             if (series.IsExpansion)
             {
                 string face = "card_set_" + series.Key + "_" + card.Art;
-                // Neither a series key nor an art key can contain "--".
                 return condition == 2 ? face : face + "--wear-" + condition;
             }
             string key;
@@ -152,7 +151,6 @@ namespace ProbablyTradingCards
             item.SetGameItemType(TypeHelper.HOUSEHOLD_GOOD);
             item.unitValue = price;
             item.mayStackItemFunc = (_, __) => false;
-            // 默认激活会在鼠标按下时抢先拆包；普通激活由原版区分点击与拖拽。
             item.activateDefault = false;
             item.mayActivateSlotItemFunc = (pack, _, __) => GeneralHelper.IsItemEffectivelyOwned(pack);
             item.canActivateSlotItemFunc = (pack, _, __) => GeneralHelper.IsItemEffectivelyOwned(pack);
@@ -224,7 +222,6 @@ namespace ProbablyTradingCards
             AddHouseholdType(item, card);
             ApplyCondition(item, definition, condition);
             CardInspection.Configure(item, definition, condition);
-            // The Debug item grid reads the factory sprite before inventory validation.
             item.Validate();
             item.mayStackItemFunc = (_, __) => false;
             return item;
@@ -241,7 +238,6 @@ namespace ProbablyTradingCards
         {
             private static void Postfix(List<SaveItemNode> savedItems)
             {
-                // Saved tags and categories replace the factory defaults during decoding.
                 foreach (var node in savedItems)
                     if (TradingCardsApi.TryGetCard(node.tempLink, out var card, out _))
                         AddHouseholdType(node.tempLink, card);
@@ -363,7 +359,6 @@ namespace ProbablyTradingCards
                     if (StationLegends.IsLegendsPack(data.kind) && !data.resolvedAlternate.HasValue)
                     {
                         StationLegends.ResolveAlternate(data, AlternateCardProgress.Eligible(), HealthData.GetLuck());
-                        // A failed placement pins this result even when the player tries again on another day.
                         SetPackData(pack, data);
                     }
                     alternate = data.resolvedAlternate ?? -1;

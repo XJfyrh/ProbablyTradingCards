@@ -52,7 +52,7 @@ namespace ProbablyTradingCards
             AlbumSprite = CustomAlbumArt ? $"set_{Key}_album" : night ? "album" : "legends_album";
             if (data.Cards.Count == 0) throw new InvalidOperationException("cards 不能为空。");
             CardIds = ReadCards(data.Cards).AsReadOnly();
-            if (legends) return; // 传奇的瘦包、肥包和整盒由 StationLegends 配货。
+            if (legends) return;
             if (data.Slots == null || data.Slots.Count == 0 ||
                 (data.ResealedSlots != null && data.ResealedSlots.Count != data.Slots.Count))
                 throw new InvalidOperationException("slots 不能为空。resealedSlots 如有配置，须与 slots 等长。");
@@ -64,10 +64,9 @@ namespace ProbablyTradingCards
                     throw new InvalidOperationException($"原封包中没有能抽到 {rarity} 卡的卡位。");
         }
 
-        // 原版物品和包内容用整数区分卡种。按内容键生成编号，添加其他系列或调整展示顺序都不会改动它。
         private static int ContentId(string key)
         {
-            uint hash = 2166136261; // FNV-1a，输入为 ASCII 内容键。
+            uint hash = 2166136261;
             foreach (char ch in key) hash = unchecked((hash ^ ch) * 16777619);
             return (int)(0x40000000u | (hash & 0x3fffffffu));
         }

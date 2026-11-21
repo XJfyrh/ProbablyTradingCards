@@ -158,7 +158,6 @@ class SeriesArtTest(unittest.TestCase):
             self.assertEqual(len(icons), 6)
             self.assertTrue(all(icon.name.startswith("card_set_dock_demo_") for icon in icons))
 
-            # A perfect card from another series can have a key ending in "_wear_0".
             peer = project / "Series" / "dock_demo_courier_wear"
             (peer / "Art").mkdir(parents=True)
             data = json.loads((EXAMPLE / "series.json").read_text(encoding="utf-8"))

@@ -6,7 +6,7 @@
 
 ## 生成发布包
 
-安装 PowerShell 7、.NET 10 SDK 和带 Pillow 的 Python。构建使用本机《Probably Stolen》正式游戏的 DLL。Python 可复用仓库的 `.venv`，也可通过 `-PythonExe` 指定。[构建环境](../../README.md#构建模组)
+安装 PowerShell 7 和 .NET 10 SDK，按离线测试说明给 Python 安装图像和注释解析依赖。构建使用本机《Probably Stolen》正式游戏的 DLL。Python 可复用仓库的 `.venv`，也可通过 `-PythonExe` 指定。[构建环境](../../README.md#构建模组) · [离线测试环境](../../tests/README.md#构建模组并运行离线测试)
 
 在仓库根目录运行以下命令。用 `-GameDir` 或环境变量 `PROBABLY_STOLEN_GAME_DIR` 指定实际的游戏目录。
 
