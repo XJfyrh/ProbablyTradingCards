@@ -8,12 +8,13 @@
 
 ## 音效
 
-以下音效均采用 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)。随模组分发的版本经过裁剪、单声道转换、音量调整和淡出处理。
+SR 揭牌使用本模组原创的复古合成器乐句。
+
+以下外部音效素材均采用 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)。随模组分发的版本经过裁剪、单声道转换、音量调整和淡出处理。
 
 - 撕包、落牌和入册使用 Kenney 的 `cards-pack-open-2.ogg`、`card-place-1.ogg` 和 `card-slide-4.ogg`。[Casino Audio](https://kenney.nl/assets/casino-audio)
 - R 揭牌提示和展示柜放置使用 Kenney 的 `pluck_002.ogg` 和 `glass_003.ogg`。[Interface Sounds](https://kenney.nl/assets/interface-sounds)
 - 割包使用 Sadiquecat 录制的美工刀切割纸板音效。[Small utility knife and carboard cutting (mke600)](https://freesound.org/people/Sadiquecat/sounds/815423/)
-- SR 揭牌提示为原创爵士短句，使用 Versilian Studios 的 TX81Z 电钢琴和低音提琴拨弦，以及 Janne Leimola 的刷奏军鼓录音。[VCSL](https://github.com/sgossner/VCSL)、[VSCO 2 Community Edition](https://versilian-studios.com/vsco-community/)、[刷奏军鼓](https://freesound.org/people/jannevse/sounds/614387/)
 - 翻页使用 OwlStorm（Ashe Kirk）的翻页录音。[Page Turn (1)](https://freesound.org/people/OwlStorm/sounds/151220/)
 
 ## 授权范围
