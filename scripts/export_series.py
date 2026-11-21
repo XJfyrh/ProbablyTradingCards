@@ -97,7 +97,7 @@ def expect_card(expected, paper, items, key, wear_suffix, *, separate_faces=Fals
             expected[paper / name] = CARD_SIZE
 
 
-def check_textures(expected):
+def check_textures(expected, *, require_foreground=False):
     for path, size in expected.items():
         if not path.is_file():
             raise ValueError(f"{path}: missing required texture")
@@ -108,15 +108,19 @@ def check_textures(expected):
                 image.verify()
             with Image.open(path) as image:
                 image.load()
+                if require_foreground and not image.convert("RGBA").getchannel("A").getbbox():
+                    raise ValueError("packaging has no visible foreground")
         except (OSError, ValueError, SyntaxError, Image.DecompressionBombError) as error:
             raise ValueError(f"{path}: {error}") from error
 
 
 def check_series(folder, paper, items, shared_paper, shared_items, art_keys, packaging):
     expected = shared_textures(shared_paper)
+    packaging_textures = {}
     for key in packaging.values():
         owner = items if key.startswith("set_") else shared_items
-        expected[owner / f"{key}.png"] = PACKAGING_SIZE
+        packaging_textures[owner / f"{key}.png"] = PACKAGING_SIZE
+    check_textures(packaging_textures, require_foreground=True)
     for art in art_keys:
         expect_card(expected, paper, items, f"card_set_{folder.name}_{art}", WEAR_SUFFIX)
     check_textures(expected)
@@ -128,11 +132,12 @@ def check_built_ins(series, paper, items):
     night_manifest = read_manifest(night)
     legends_manifest = read_manifest(legends)
     expected = shared_textures(paper)
-    expected.update({items / f"{key}.png": size for key, size in BUILT_IN_PACKAGING.items()})
+    packaging = {items / f"{key}.png": size for key, size in BUILT_IN_PACKAGING.items()}
     for key in read_packaging(night, night_manifest, album="album").values():
-        expected[items / f"{key}.png"] = PACKAGING_SIZE
+        packaging[items / f"{key}.png"] = PACKAGING_SIZE
     for key in read_packaging(legends, legends_manifest, pack="legends_slim").values():
-        expected[items / f"{key}.png"] = PACKAGING_SIZE
+        packaging[items / f"{key}.png"] = PACKAGING_SIZE
+    check_textures(packaging, require_foreground=True)
     for card in night_manifest["cards"]:
         expect_card(expected, paper, items, f"card_{card['id']}", "_wear_", separate_faces=True)
     legend_keys = read_art_keys(legends, legends_manifest["cards"])
@@ -140,7 +145,7 @@ def check_built_ins(series, paper, items):
     for key in [*legend_keys, "eleanor-rev-oil"]:
         expect_card(expected, paper, items, f"card_legends_{key}", "_wear_")
     check_textures(expected)
-    print(f"Built-in card series: verified {len(expected)} textures")
+    print(f"Built-in card series: verified {len(expected) + len(packaging)} textures")
 
 
 def main():

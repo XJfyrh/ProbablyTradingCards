@@ -57,6 +57,10 @@ python -m venv .venv
 
 脚本读取四十张常规卡、十二幅异画原图、包装和收藏簿素材，将游戏用图写入 `ProbablyTradingCards/Textures/Cards` 和 `Textures/Items`。传奇的大卡面在游戏里叠加磨损层，背包用的三种品相图标在导出时合成。十一张异画中，Eleanor 的一个版本可以切换两幅画面，因此需要十二幅原图。[导出脚本](export_station_legends.py)
 
+## 核对提交的游戏贴图
+
+在 Windows 上确认能调用 PowerShell 7（`pwsh`），然后运行 `./.venv/Scripts/python.exe scripts/check_art_exports.py`。脚本在临时目录重新导出主模组各辑的派生贴图，逐张核对仓库成品的尺寸和 RGBA 像素。成功时显示核对张数，像素不一致时给出成品路径。夜话的完好卡面、磨损层和包册图标直接作为导出输入。独立扩展在自己的构建过程中从原画生成贴图。
+
 ## 修改共用磨损层
 
 轻磨和折痕的源图分别是 `ProbablyTradingCards/Textures/Cards/wear_light.png` 和 `wear_creased.png`。改动其中一张后，按以下顺序更新使用这套磨损效果的卡面和图标。

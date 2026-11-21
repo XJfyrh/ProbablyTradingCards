@@ -8,7 +8,7 @@
     <ModLicenseFile Include="$(MSBuildThisFileDirectory)CREDITS.md" Condition="Exists('$(MSBuildThisFileDirectory)CREDITS.md')" />
     <ModLicenseFile Include="$(MSBuildThisFileDirectory)ProbablyTradingCards/CREDITS.md" Condition="!Exists('$(MSBuildThisFileDirectory)CREDITS.md') And Exists('$(MSBuildThisFileDirectory)ProbablyTradingCards/CREDITS.md')" />
   </ItemGroup>
-  <Target Name="CheckGameDirectory" BeforeTargets="ResolveAssemblyReferences">
+  <Target Name="CheckGameDirectory" BeforeTargets="ResolveAssemblyReferences" Condition="'$(RequiresGameAssemblies)' != 'false'">
     <Error Condition="'$(GameDir)' == '' or !Exists('$(GameDir)/Probably Stolen_Data/Managed')"
            Text="找不到游戏程序集。请用 -p:GameDir 指定 Probably Stolen 安装目录，或设置 PROBABLY_STOLEN_GAME_DIR。" />
   </Target>

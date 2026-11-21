@@ -224,6 +224,7 @@ namespace ProbablyTradingCards
             album.flavorText = Flavor;
             album.unitValue = 24;
             album.mayStackItemFunc = (_, __) => false;
+            AlbumPocketRestore.Bind(series, album, book.SelectMany(page => page.Slots).Select(slot => (slot.id, slot.pocket)));
             return album;
         }
 

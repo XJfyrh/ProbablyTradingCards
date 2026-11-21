@@ -14,7 +14,8 @@ PROTOCOL = 1
 MAX_HEARTBEAT_AGE = 8
 CORE = "probably_trading_cards"
 AUDIT = re.compile(
-    r"\[ModLoader\] audit: (\S+) v(\S+) .*?\brunning=(True|False)\b"
+    r"\[ModLoader\] audit: (\S+) v(\S+) source=(\S+) workshop=(\d+)\b"
+    r".*?\brunning=(True|False)\b"
     r".*?\btrust=(\S+).*?\bhash=(\S+)", re.IGNORECASE
 )
 
@@ -54,9 +55,9 @@ def audit(data_dir, required):
                     mods.clear()
                 match = AUDIT.search(line)
                 if match:
-                    key, version, running, trust, digest = match.groups()
+                    key, version, source, workshop, running, trust, digest = match.groups()
                     mods[key] = dict(version=version, running=running.lower() == "true",
-                                    trust=trust, hash=digest)
+                                    source=source, workshop=int(workshop), trust=trust, hash=digest)
     except FileNotFoundError:
         return 2, dict(status="blocked", error="找不到游戏的 Player.log。", log=str(path))
     if not mods:

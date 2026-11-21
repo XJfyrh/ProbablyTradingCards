@@ -284,10 +284,12 @@ namespace ProbablyTradingCards
         {
             var window = new PixelWindow(true);
             var layout = new GridPixelElement(3, ((series.CardIds.Count + 2) / 3) * 2, true);
+            var pockets = new List<(int id, GameGridInventory pocket)>();
             for (int index = 0; index < series.CardIds.Count; index++)
             {
                 int definition = series.CardIds[index];
                 var pocket = new GameGridInventory(1, 2);
+                pockets.Add((definition, pocket));
                 layout.Attach(new TagElement().SetText(CardGame.Catalogue[definition].Name),
                     index % 3, index / 3 * 2, minimumWidth: 66, minimumHeight: 16);
                 layout.Attach(pocket, index % 3, index / 3 * 2 + 1,
@@ -308,6 +310,7 @@ namespace ProbablyTradingCards
             album.shortDescription = SeriesAlbum.Description(series);
             album.flavorText = AlbumFlavor;
             album.mayStackItemFunc = (_, __) => false;
+            AlbumPocketRestore.Bind(series, album, pockets);
             return album;
         }
 

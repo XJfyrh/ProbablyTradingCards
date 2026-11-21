@@ -27,6 +27,7 @@
   <Target Name="ValidateSeries" BeforeTargets="CoreCompile">
     <PropertyGroup>
       <_SeriesCheckArtifacts>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)', 'series-check'))</_SeriesCheckArtifacts>
+      <_LegacyArg Condition="'$(PublishedSeriesProject)' != ''">--legacy-project &quot;$(PublishedSeriesProject)&quot;</_LegacyArg>
       <_UpdateIdentitiesArg Condition="'$(UpdateSeriesIdentities)' == 'true'">--write-identities</_UpdateIdentitiesArg>
     </PropertyGroup>
     <Error Condition="!Exists('$(_CoreDll)')" Text="找不到前置模组的发布包，请设置 TradingCardsDll 指向 ProbablyTradingCards.dll。" />
@@ -34,7 +35,7 @@
       <Output TaskParameter="Result" ItemName="_DeclaredAssembly" />
     </XmlPeek>
     <Error Condition="'@(_DeclaredAssembly)' != '$(TargetFileName)'" Text="manifest.xml 的 Assembly 应填写本项目生成的 $(TargetFileName)。" />
-    <Exec UseUtf8Encoding="Always" StdOutEncoding="utf-8" StdErrEncoding="utf-8" Command="dotnet run --project &quot;$(_Tools)/SeriesCheck/SeriesCheck.csproj&quot; -c Release --artifacts-path &quot;$(_SeriesCheckArtifacts)&quot; &quot;-p:TradingCardsDll=$(_CoreDll)&quot; &quot;-p:GameDir=$(_GameDir)&quot; -- $(_UpdateIdentitiesArg) &quot;$(MSBuildProjectDirectory)&quot;" />
+    <Exec UseUtf8Encoding="Always" StdOutEncoding="utf-8" StdErrEncoding="utf-8" Command="dotnet run --project &quot;$(_Tools)/SeriesCheck/SeriesCheck.csproj&quot; -c Release --artifacts-path &quot;$(_SeriesCheckArtifacts)&quot; &quot;-p:TradingCardsDll=$(_CoreDll)&quot; &quot;-p:GameDir=$(_GameDir)&quot; -- $(_UpdateIdentitiesArg) $(_LegacyArg) &quot;$(MSBuildProjectDirectory)&quot;" />
   </Target>
   <Target Name="PackageMod" AfterTargets="Build">
     <PropertyGroup>
@@ -57,7 +58,7 @@
     <ItemGroup>
       <_Source Include="Series/**/*" />
       <_Tool Include="$(_Tools)/export_series.py;$(_Tools)/card_textures.py" />
-      <_Check Include="$(_Tools)/SeriesCheck/SeriesCheck.csproj;$(_Tools)/SeriesCheck/Program.cs" />
+      <_Check Include="$(_Tools)/SeriesCheck/SeriesCheck.csproj;$(_Tools)/SeriesCheck/Program.cs;$(_Tools)/SeriesCheck/PublishedIdentities.cs" />
     </ItemGroup>
     <Copy SourceFiles="$(MSBuildProjectFullPath);manifest.xml;ModEntry.cs;README.md;.gitignore;@(ModLicenseFile)" DestinationFolder="$(TemplateDir)" />
     <Copy SourceFiles="$(DirectoryBuildPropsPath)" DestinationFolder="$(TemplateDir)" Condition="Exists('$(DirectoryBuildPropsPath)')" />

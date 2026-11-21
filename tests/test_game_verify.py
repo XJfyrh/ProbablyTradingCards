@@ -97,7 +97,9 @@ class GameVerifyTest(unittest.TestCase):
             "running=False trust=NotChecked caps=declared none hash=-\n",
             encoding="utf-8",
         )
-        self.finish(self.start("audit", CORE), 0)
+        core = self.finish(self.start("audit", CORE), 0)["mods"][CORE]
+        self.assertEqual(core["source"], "Local")
+        self.assertEqual(core["workshop"], 0)
         self.finish(self.start("audit", CORE, "dock_letters"), 1)
         self.finish(self.start("audit", "collection_bounty"), 1)
 
@@ -106,6 +108,17 @@ class GameVerifyTest(unittest.TestCase):
                       "[ModLoader] audit: dock_letters v1.0.0 source=Local workshop=0 owner=0 "
                       "running=False trust=NotChecked caps=declared none hash=-\n")
         self.finish(self.start("audit", CORE), 1)
+
+    def test_audit_reports_workshop_loads_without_requiring_local_source(self):
+        (self.data / "Player.log").write_text(
+            "[ModLoader] audit: game 0.46D, trust list: none\n"
+            f"[ModLoader] audit: {CORE} v0.7.0 source=Workshop workshop=3842861920 owner=123 "
+            f"running=True trust=Match caps=none hash={'b' * 64}\n", encoding="utf-8",
+        )
+        core = self.finish(self.start("audit", CORE), 0)["mods"][CORE]
+        self.assertEqual(core["source"], "Workshop")
+        self.assertEqual(core["workshop"], 3842861920)
+        self.assertEqual(core["hash"], "b" * 64)
 
     def test_status_and_run_require_a_fresh_bridge(self):
         (self.data / "Player.log").write_text("NATIVE VALIDATION PASS 801\n", encoding="utf-8")

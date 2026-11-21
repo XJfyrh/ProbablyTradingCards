@@ -8,9 +8,6 @@ from card_textures import export_card, export_packaging, load_wear
 
 
 PROJECT = Path(__file__).resolve().parents[1] / "ProbablyTradingCards"
-SOURCE = PROJECT / "Art" / "StationLegends"
-PAPER = PROJECT / "Textures" / "Cards"
-ITEMS = PROJECT / "Textures" / "Items"
 PACKAGING = {
     "legends_slim": (32, 48),
     "legends_fat": (32, 48),
@@ -24,38 +21,35 @@ ALBUM_UI = {
 }
 
 
-def export_alternates(wear):
-    cards = sorted((SOURCE / "Alternate" / "cards").glob("*.png"))
-    if len(cards) != 12:
-        raise ValueError(f"Expected 12 alternate artworks, found {len(cards)}")
-    for path in cards:
-        export_card(path, f"card_legends_{path.stem}", PAPER, ITEMS, wear)
-
-
-def main():
-    wear = load_wear(PAPER)
+def export_legends(source, paper, items, wear):
     total = 0
     for folder in ("Standard", "SSR", "UR"):
-        root = SOURCE / folder
+        root = source / folder
         entries = json.loads((root / "manifest.json").read_text(encoding="utf-8-sig"))
         for entry in entries:
-            export_card(root / entry["image"], f"card_legends_{entry['id']}", PAPER, ITEMS, wear)
+            export_card(root / entry["image"], f"card_legends_{entry['id']}", paper, items, wear)
             total += 1
     if total != 40:
         raise ValueError(f"Expected 40 regular cards, found {total}")
-    export_alternates(wear)
+    alternates = sorted((source / "Alternate" / "cards").glob("*.png"))
+    if len(alternates) != 12:
+        raise ValueError(f"Expected 12 alternate artworks, found {len(alternates)}")
+    for path in alternates:
+        export_card(path, f"card_legends_{path.stem}", paper, items, wear)
     for condition, layer in enumerate(wear):
-        layer.save(PAPER / f"card_legends_wear_{condition}.png")
+        layer.save(paper / f"card_legends_wear_{condition}.png")
     for key, size in PACKAGING.items():
-        export_packaging(SOURCE / "Packaging" / f"{key}.png", ITEMS / f"{key}.png", size)
+        export_packaging(source / "Packaging" / f"{key}.png", items / f"{key}.png", size)
     for key, size in ALBUM_UI.items():
-        with Image.open(SOURCE / "Packaging" / f"{key}.png") as source:
-            art = source.convert("RGBA")
+        with Image.open(source / "Packaging" / f"{key}.png") as original:
+            art = original.convert("RGBA")
             bounds = art.getchannel("A").point(lambda value: 255 if value >= 96 else 0).getbbox()
             if not bounds:
                 raise ValueError(f"{key} has no foreground")
-            art.crop(bounds).resize(size, Image.Resampling.LANCZOS).save(PAPER / f"{key}.png", optimize=True)
+            art.crop(bounds).resize(size, Image.Resampling.LANCZOS).save(paper / f"{key}.png", optimize=True)
 
 
 if __name__ == "__main__":
-    main()
+    textures = PROJECT / "Textures"
+    paper = textures / "Cards"
+    export_legends(PROJECT / "Art" / "StationLegends", paper, textures / "Items", load_wear(paper))

@@ -73,6 +73,7 @@ static void Run(string root)
     manifest["customPackArt"] = manifest["customAlbumArt"] = true;
     var second = TradingCardsApi.RegisterSeries("other_author", dock.Key, manifest.ToString());
     NativeDirectoryChecks.Run(dock);
+    AlbumSaveChecks.Run(dock);
 
     foreach (var card in dock.Cards.Values)
     {

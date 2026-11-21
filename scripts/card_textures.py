@@ -36,6 +36,8 @@ def export_packaging(path, destination, size):
     sprite = sprite.crop(bounds)
     sprite.thumbnail((size[0] - 2, size[1] - 2), Image.Resampling.LANCZOS)
     alpha = sprite.getchannel("A").point(lambda value: 255 if value >= 110 else 0)
+    if not alpha.getbbox():
+        raise ValueError(f"{path} has no visible foreground at inventory size")
     sprite.putalpha(alpha)
     output = Image.new("RGBA", size)
     output.alpha_composite(sprite, ((size[0] - sprite.width) // 2, (size[1] - sprite.height) // 2))

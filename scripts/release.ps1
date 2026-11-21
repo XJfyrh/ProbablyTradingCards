@@ -4,7 +4,7 @@ param(
     [string]$PythonExe,
     [string]$OutputDir,
     [string]$PreviewFile,
-    [UInt64]$WorkshopItemId = 0,
+    [UInt64]$WorkshopItemId = 3842861920,
     [ValidateSet('Hidden', 'FriendsOnly', 'Public')]
     [string]$Visibility,
     [string]$ChangeNote
@@ -30,16 +30,14 @@ if (-not $PythonExe) {
     $PythonExe = (Resolve-Path -LiteralPath $PythonExe).ProviderPath
 }
 
-$preview = $null
 if (-not $PreviewFile) {
     $PreviewFile = Join-Path $projectDir 'Textures/Cards/card_legends_joe.png'
 }
-if ($PreviewFile) {
-    $preview = Get-Item -LiteralPath $PreviewFile
-    if ($preview.PSIsContainer -or $preview.Length -lt 16 -or $preview.Length -ge 1MB) {
-        throw 'The Workshop preview must be an image file smaller than 1 MB.'
-    }
-    $validatePreview = @'
+$preview = Get-Item -LiteralPath $PreviewFile
+if ($preview.PSIsContainer -or $preview.Length -lt 16 -or $preview.Length -ge 1MB) {
+    throw 'The Workshop preview must be an image file smaller than 1 MB.'
+}
+$validatePreview = @'
 from pathlib import Path
 import sys
 from PIL import Image
@@ -51,9 +49,8 @@ with Image.open(path) as image:
         raise SystemExit(f"Expected a PNG, JPEG, or GIF preview with the matching extension: {path}")
     image.verify()
 '@
-    & $PythonExe -X utf8 -c $validatePreview $preview.FullName
-    if ($LASTEXITCODE -ne 0) { throw 'Workshop preview validation failed.' }
-}
+& $PythonExe -X utf8 -c $validatePreview $preview.FullName
+if ($LASTEXITCODE -ne 0) { throw 'Workshop preview validation failed.' }
 
 if (-not $OutputDir) {
     $stamp = Get-Date -Format 'yyyyMMdd-HHmmss-fff'
@@ -149,11 +146,9 @@ try {
         description = $description
         changenote = if ($ChangeNote) { $ChangeNote } else { "版本 $version" }
     }
-    if ($preview) {
-        $previewName = 'workshop-preview' + $preview.Extension.ToLowerInvariant()
-        Copy-Item -LiteralPath $preview.FullName -Destination (Join-Path $stage $previewName)
-        $fields['previewfile'] = Join-Path $output $previewName
-    }
+    $previewName = 'workshop-preview' + $preview.Extension.ToLowerInvariant()
+    Copy-Item -LiteralPath $preview.FullName -Destination (Join-Path $stage $previewName)
+    $fields['previewfile'] = Join-Path $output $previewName
     if ($Visibility -or $WorkshopItemId -eq 0) {
         $fields['visibility'] = switch ($Visibility) {
             'Public' { '0' }

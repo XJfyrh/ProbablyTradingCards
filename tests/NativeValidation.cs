@@ -16,8 +16,8 @@ namespace ProbablyTradingCards
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "拆包交互样品", CreateInteractionSamples);
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "卡面品相样品", CreateCardArtSamples);
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "星港收藏簿样品", CreateLegendsSamples);
-            ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "异次元卡商试玩存档", SeedBranchSellerPlaytest);
-            ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "黄牛周五试玩存档", SeedScalperPlaytest);
+            ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "异次元卡商样品（保存27号档）", SeedBranchSellerPlaytest);
+            ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "黄牛周五样品（保存27号档）", SeedScalperPlaytest);
         }
 
         private static void SeedScalperPlaytest()
@@ -30,7 +30,6 @@ namespace ProbablyTradingCards
                 return;
             }
 
-            // Persist only the day and funds. The formal build generates the normal customer queue.
             StoreStation.Instance.dayCounter = 26;
             store.ModCash(Math.Max(0, 10_000 - store.GetCash()), playSound: false);
             store.SaveGame();
@@ -47,7 +46,6 @@ namespace ProbablyTradingCards
                 return;
             }
 
-            // The fixture saves only prerequisites. The formal build supplies the visit and trades.
             var album = DirectoryMaster.Item(NativeItems.LegendsAlbumId);
             var ids = CardGame.Series.ForPack(PackKind.Slim).Cards.Values.Where(card => !card.IsAlternate)
                 .Select(card => card.Id).Concat(new[] { StationLegends.EleanorScav, StationLegends.SerpicoRev });
@@ -161,7 +159,7 @@ namespace ProbablyTradingCards
                 if (!condition) throw new InvalidOperationException(description);
                 checks++;
             };
-            try
+            ValidationCleanup.Run(() =>
             {
                 // EncodeItem and inspecting an alternate both write to the currently loaded store.
                 store.savedItemFeatureList = new List<ItemFeature>();
@@ -203,7 +201,7 @@ namespace ProbablyTradingCards
                             card.IsGameItemType(TypeHelper.HOUSEHOLD_GOOD) == household, "only common cards are household goods");
                         check(householdBuyer.IsClientBuyingThisItem(card) == household, "native household buyer accepts common cards");
                         check(everydayBuyer.IsRefusingLuxuryItem(card) == luxury, "native luxury buying rules recognize SR cards");
-                        check(collector.IsClientBuyingThisItem(card), "collector accepts every card rarity and condition");
+                        check(collector.IsClientBuyingThisItem(card), "night collector accepts every Night Stories card and condition");
                         long baseValue = CardGame.Catalogue[definition].Value;
                         long expectedValue = (long)Math.Round(baseValue * (1.0 + (CardGame.ConditionPercentages[condition] - 100) / 100.0));
                         check(card.GetBaseValue() == baseValue, "undamaged base value");
@@ -299,7 +297,7 @@ namespace ProbablyTradingCards
                 check(!buyer.IsClientBuyingThisItem(temporary.Last(item => item.identifier == NativeItems.PackId)), "night buyer only collects singles");
                 check(!buyer.IsClientBuyingThisItem(album), "buyer leaves album contents alone");
                 CheckCustomers(check, temporary, windows);
-                CheckCardScalper(check, temporary, windows);
+                CheckScalperCleanup(check, temporary, windows);
                 CheckAppointments(check, temporary, windows);
                 CheckBranchAlternateSeller(check, temporary, windows);
                 CheckLegends(check, temporary);
@@ -312,18 +310,24 @@ namespace ProbablyTradingCards
                 check(originalModData == null || originalModData.Count == savedModData.Count &&
                     originalModData.All(pair => savedModData.TryGetValue(pair.Key, out string value) && value == pair.Value),
                     "validation leaves the original mod progress unchanged");
-            }
-            finally
+            }, cleanup =>
             {
-                store.savedItemFeatureList = originalFeatures;
-                store.modData = originalModData;
-                CustomUIManager.Instance.CloseWindow(CardInspection.WindowId);
-                foreach (GameItem item in temporary)
-                    if (item is GameItemElement element && !element.IsDestroyed()) item.Destroy();
-                foreach (PixelWindow window in windows) window.Destroy();
-                SeriesAlbum.RefreshOpenBooks();
-            }
+                cleanup.Attempt("close card inspection", () => CustomUIManager.Instance.CloseWindow(CardInspection.WindowId));
+                cleanup.Each("destroy validation item", temporary, DestroyTemporaryItem);
+                cleanup.Each("destroy validation window", windows, window => window.Destroy());
+                cleanup.Attempt("restore saved features and mod progress", () =>
+                {
+                    store.savedItemFeatureList = originalFeatures;
+                    store.modData = originalModData;
+                });
+                cleanup.Attempt("refresh player albums", SeriesAlbum.RefreshOpenBooks);
+            });
             return checks;
+        }
+
+        private static void DestroyTemporaryItem(GameItem item)
+        {
+            if (item != null && (!(item is GameItemElement element) || !element.IsDestroyed())) item.Destroy();
         }
 
         private static void CheckLegends(Action<bool, string> check, List<GameItem> temporary)
@@ -365,8 +369,18 @@ namespace ProbablyTradingCards
             check(showcased.Keys.ToHashSet().SetEquals(new[] { leftId, rightId, StationLegends.EleanorScav }),
                 "showcase includes filed cards from unselected spreads, including alternates");
             check(!GraphUtils.CanAccept(album, nightCard), "Legends album excludes Night Stories cards");
-            var restoredAlbum = RoundTripItem(album);
+            var expectedPockets = GraphUtils.FindChildrenType<GameGridInventory>(album)
+                .Select(pocket => pocket.childItems.SingleOrDefault()?.identifier).ToArray();
+            var restoredAlbum = RoundTripItem(album, prepare: nodes =>
+            {
+                var positions = nodes.Single(node => node.identifier == NativeItems.LegendsAlbumId).childItemInventoryNode;
+                check(positions.Count == 3 && positions[0] != positions[1], "book saved three distinct card pockets");
+                (positions[0], positions[1]) = (positions[1], positions[0]);
+            });
             temporary.Add(restoredAlbum);
+            check(GraphUtils.FindChildrenType<GameGridInventory>(restoredAlbum)
+                .Select(pocket => pocket.childItems.SingleOrDefault()?.identifier).SequenceEqual(expectedPockets),
+                "native DecodeNodes restores each card to its designated pocket after saved node positions change");
             check(GraphUtils.FindChildrenType<GameItem>(restoredAlbum).Count == 3, "book saves cards on unselected spreads");
             check(restoredAlbum.flavorText == album.flavorText, "legends album roundtrip preserves flavor");
             check(Collectors.Profiles[(int)CollectorKind.Alternate].IsAvailable(23) ==
@@ -577,7 +591,7 @@ namespace ProbablyTradingCards
             var originalState = store.storeState;
             var originalData = store.modData;
             int originalDay = StoreStation.GetDayCounter();
-            var counter = new GameGridInventory(6, 3);
+            var counter = new GameGridInventory(12, 8);
             var window = new PixelWindow();
             window.Attach(counter);
             windows.Add(window);
@@ -591,7 +605,7 @@ namespace ProbablyTradingCards
                 return item;
             }
 
-            try
+            ValidationCleanup.Run(() =>
             {
                 AccessTools.Property(typeof(EmporiumEntry), "backInvinvElement").SetValue(entry, counter);
                 store.storeClientManager = new StoreClientManager();
@@ -650,16 +664,137 @@ namespace ProbablyTradingCards
                 check(declined.mainDialogue.choices.Count == 0 && !declined.tryInterceptDismiss() &&
                     RareCardAppointments.ReadPending() == null && GeneralHelper.IsItemEffectivelyOwned(ur),
                     "ordinary dismissal safely cancels the appointment without selling the card");
-            }
-            finally
+                CheckAppointmentOtherSales(check, temporary, windows, counter);
+            }, cleanup =>
             {
-                store.modData = originalData;
-                store.storeState = originalState;
-                store.currentClientInstance = originalClient;
-                store.storeClientManager = originalManager;
-                StoreStation.Instance.dayCounter = originalDay;
-                AccessTools.Property(typeof(EmporiumEntry), "backInvinvElement").SetValue(entry, originalCounter);
+                cleanup.Attempt("restore appointment state", () =>
+                {
+                    store.modData = originalData;
+                    store.storeState = originalState;
+                    store.currentClientInstance = originalClient;
+                    store.storeClientManager = originalManager;
+                });
+                cleanup.Attempt("restore appointment day", () => StoreStation.Instance.dayCounter = originalDay);
+                cleanup.Attempt("restore appointment counter", () =>
+                    AccessTools.Property(typeof(EmporiumEntry), "backInvinvElement").SetValue(entry, originalCounter));
+            });
+        }
+
+        private static void CheckAppointmentOtherSales(Action<bool, string> check, List<GameItem> temporary,
+            List<PixelWindow> windows, GameGridInventory counter)
+        {
+            var store = PlayerStore.Instance;
+            var entry = EmporiumEntry.Instance;
+            var originalSold = entry.soldElement;
+            var originalTracker = store.soldItemsTracker;
+            var originalStats = store.runStats;
+            var originalReputations = store.storeReputations;
+            var originalSecurity = store.secData;
+            int originalCash = store.playerCash;
+            int originalFavor = store.wildFavor;
+            var sold = new GameGridInventory(20, 12);
+            var soldWindow = new PixelWindow();
+            soldWindow.Attach(sold);
+            windows.Add(soldWindow);
+
+            GameItem Put(string id, GraphNodeStorage destination)
+            {
+                var item = DirectoryMaster.Item(id, true);
+                temporary.Add(item);
+                check(GraphUtils.TryAcceptAll(destination, item) == 0 && item.parentInventory != null,
+                    "place appointment sale fixture: " + id);
+                return item;
             }
+
+            var buyer = new StoreClient
+            {
+                identifier = ModEntry.ModId + ".validation_buyer",
+                displayName = "预约验证买家",
+                clientFaction = "FACTION_UPPER_LEVEL",
+                clientIntent = StoreClient.ClientIntent.BUY,
+                useClientBudget = false,
+                acceptRetailMarkup = false
+            };
+            buyer.clientBuyingTagList.Add("ALL_TYPE");
+            ValidationCleanup.Run(() =>
+            {
+                AccessTools.Property(typeof(EmporiumEntry), "soldElement").SetValue(entry, sold);
+                store.soldItemsTracker = new List<SoldItem>();
+                store.runStats = new RunStats();
+                store.storeReputations = new List<StoreReputation>();
+                store.secData = new SecData();
+                store.currentClientInstance = StoreClientInstance.CreateClientInstance(buyer);
+                int id = CardGame.Catalogue.Values.First(card => card.IsLegends && card.Rarity == "UR").Id;
+                var reserved = Put(NativeItems.CardId(id, 2), counter);
+                var otherAlbum = Put(NativeItems.LegendsAlbumId, counter);
+                Put(NativeItems.CardId(id, 2), otherAlbum);
+                check(RareCardAppointments.TryBook(reserved), "book the exact entity before an unrelated album sale");
+                var booking = RareCardAppointments.ReadPending();
+                check(store.CanSellThisItem(otherAlbum), "native buyer accepts an important album with a rare card");
+                store.SellItem(otherAlbum);
+                check(otherAlbum.parentInventory == sold && RareCardAppointments.ReadPending()?.Token == booking.Token,
+                    "selling another copy inside an album preserves the booked entity");
+
+                check(store.CanSellThisItem(reserved), "native buyer accepts the booked loose card");
+                store.SellItem(reserved);
+                check(reserved.parentInventory == sold && RareCardAppointments.ReadPending() == null,
+                    "native loose-card sale immediately clears its appointment");
+
+                var album = Put(NativeItems.LegendsAlbumId, counter);
+                var nestedCard = Put(NativeItems.CardId(id, 2), album);
+                check(RareCardAppointments.TryBook(nestedCard), "a completed sale immediately frees the appointment slot");
+                booking = RareCardAppointments.ReadPending();
+                var containerWindow = new PixelWindow();
+                containerWindow.Attach(new GameGridInventory(8, 6));
+                var container = ItemDirectory.CreateEmptyItem().SetContentWindow(containerWindow)
+                    .SetSpriteAndShapeFromMod(ModEntry.ModId, "album");
+                temporary.Add(container);
+                container.identifier = ModEntry.ModId + ".validation_container";
+                container.SetGameItemType(TypeHelper.STORAGE);
+                container.EnableTag(ContainerHelper.CONTAINER_TAG);
+                GeneralHelper.SetItemOwned(container);
+                check(GraphUtils.TryAcceptAll(counter, container) == 0 &&
+                    GraphUtils.TryAcceptAll(container, album) == 0 &&
+                    GraphUtils.FindAllChildrenType<GameItem>(container).Contains(nestedCard),
+                    "reserved card is nested inside an album and an outer container");
+
+                var underfunded = new StoreClient
+                {
+                    identifier = ModEntry.ModId + ".validation_underfunded_buyer",
+                    displayName = "预约验证买家",
+                    clientFaction = "FACTION_UPPER_LEVEL",
+                    clientIntent = StoreClient.ClientIntent.BUY
+                };
+                underfunded.clientBuyingTagList.Add("ALL_TYPE");
+                underfunded.SetClientBudget(1);
+                FixedCardOffers.Configure(underfunded, _ => 2);
+                store.currentClientInstance = StoreClientInstance.CreateClientInstance(underfunded);
+                check(!store.CanSellThisItem(container), "the fixed-price buyer cannot afford the container");
+                store.SellItem(container);
+                check(GeneralHelper.IsItemEffectivelyOwned(nestedCard) &&
+                    RareCardAppointments.ReadPending()?.Token == booking.Token,
+                    "a rejected native sale preserves the nested card appointment");
+
+                store.currentClientInstance = StoreClientInstance.CreateClientInstance(buyer);
+                check(store.CanSellThisItem(container), "native buyer accepts the nested container");
+                store.SellItem(container);
+                check(container.parentInventory == sold && !GeneralHelper.IsItemEffectivelyOwned(nestedCard) &&
+                    RareCardAppointments.ReadPending() == null,
+                    "native container sale immediately clears a deeply nested card appointment");
+            }, cleanup =>
+            {
+                cleanup.Attempt("restore appointment sale state", () =>
+                {
+                    store.soldItemsTracker = originalTracker;
+                    store.runStats = originalStats;
+                    store.storeReputations = originalReputations;
+                    store.secData = originalSecurity;
+                    store.playerCash = originalCash;
+                    store.wildFavor = originalFavor;
+                });
+                cleanup.Attempt("restore appointment sold inventory", () =>
+                    AccessTools.Property(typeof(EmporiumEntry), "soldElement").SetValue(entry, originalSold));
+            });
         }
 
         private static string PlaceDistributorOrder(StoreClient client, int option)
@@ -831,7 +966,7 @@ namespace ProbablyTradingCards
 
                 store.currentClientInstance = null;
                 foreach (GameItem item in front.childItems.ToList()) item.Destroy();
-                // Rebuild the queue to prove that the persisted week is enough after a reload.
+                // Rebuild the manager with the same in-memory modData to check same-week suppression.
                 manager = store.storeClientManager = new StoreClientManager();
                 StoreStation.Instance.dayCounter = 28;
                 BranchAlternateSeller.Queue(manager);
@@ -866,7 +1001,57 @@ namespace ProbablyTradingCards
             }
         }
 
-        private static void CheckCardScalper(Action<bool, string> check, List<GameItem> temporary, List<PixelWindow> windows)
+        private static void CheckScalperCleanup(Action<bool, string> check, List<GameItem> temporary, List<PixelWindow> windows)
+        {
+            var entry = EmporiumEntry.Instance;
+            var store = PlayerStore.Instance;
+            var originalInventory = entry.invElement;
+            int originalDay = StoreStation.GetDayCounter();
+            var fields = new[] { "storeClientManager", "currentClientInstance", "currentNegociatedItem", "modData",
+                "runStats", "storeReputations", "storeState", "runID", "playerCash", "wildFavor" }
+                .Select(name => AccessTools.Field(typeof(PlayerStore), name))
+                .Select(field => (field, value: field.GetValue(store))).ToArray();
+            var inventories = new[] { "frontInvinvElement", "backInvinvElement" }
+                .Select(name => AccessTools.Property(typeof(EmporiumEntry), name))
+                .Select(property => (property, value: property.GetValue(entry))).ToArray();
+            var injected = new InvalidOperationException("injected scalper fixture cleanup failure");
+            int attempts = 0;
+            bool caught = false;
+            ValidationCleanup.Run(() =>
+            {
+                try
+                {
+                    CheckCardScalper(check, temporary, windows, item =>
+                    {
+                        if (++attempts == 1)
+                        {
+                            temporary.Add(item);
+                            throw injected;
+                        }
+                        DestroyTemporaryItem(item);
+                    });
+                }
+                catch (AggregateException error) when (error.InnerExceptions.Count == 1 &&
+                    ReferenceEquals(error.InnerExceptions[0].InnerException, injected)) { caught = true; }
+                check(caught && attempts > 1, "actual scalper cleanup reports its first failure and attempts later items");
+                check(ReferenceEquals(entry.invElement, originalInventory) &&
+                    inventories.All(saved => ReferenceEquals(saved.property.GetValue(entry), saved.value)),
+                    "actual scalper cleanup restores the player's inventory references after a destroy failure");
+                check(fields.All(saved => Equals(saved.field.GetValue(store), saved.value)) &&
+                    StoreStation.GetDayCounter() == originalDay,
+                    "actual scalper cleanup restores manager, run ID, cash and player state after a destroy failure");
+            }, cleanup =>
+            {
+                // Restore independently so a regression in the scenario cannot strand the player's state.
+                cleanup.Attempt("restore cleanup probe inventory", () => entry.invElement = originalInventory);
+                cleanup.Each("restore cleanup probe player field", fields, saved => saved.field.SetValue(store, saved.value));
+                cleanup.Each("restore cleanup probe counter", inventories, saved => saved.property.SetValue(entry, saved.value));
+                cleanup.Attempt("restore cleanup probe day", () => StoreStation.Instance.dayCounter = originalDay);
+            });
+        }
+
+        private static void CheckCardScalper(Action<bool, string> check, List<GameItem> temporary, List<PixelWindow> windows,
+            Action<GameItem> destroyItem = null)
         {
             var entry = EmporiumEntry.Instance;
             var store = PlayerStore.Instance;
@@ -993,7 +1178,7 @@ namespace ProbablyTradingCards
                 foreach (GameItem item in front.childItems.Concat(back.childItems).ToList()) item.Destroy();
             }
 
-            try
+            ValidationCleanup.Run(() =>
             {
                 entry.invElement = inventory;
                 frontProperty.SetValue(entry, front);
@@ -1090,26 +1275,28 @@ namespace ProbablyTradingCards
                 CheckPack(PackKind.Slim, 270);
                 CheckSingle("UR");
                 Buy(CheckBox(PackKind.Fat, 6480), 6480);
-            }
-            finally
+            }, cleanup =>
             {
-                foreach (GameItem item in inventory.childItems.Concat(front.childItems).Concat(back.childItems).ToList())
-                    item.Destroy();
-                entry.invElement = originalInventory;
-                frontProperty.SetValue(entry, originalFront);
-                backProperty.SetValue(entry, originalBack);
-                store.storeClientManager = originalManager;
-                store.currentClientInstance = originalClient;
-                store.currentNegociatedItem = originalNegotiated;
-                store.modData = originalModData;
-                store.runStats = originalStats;
-                store.storeReputations = originalReputations;
-                store.storeState = originalState;
-                store.runID = originalRunId;
-                StoreStation.Instance.dayCounter = originalDay;
-                store.playerCash = originalCash;
-                store.wildFavor = originalFavor;
-            }
+                cleanup.Each("destroy scalper fixture item",
+                    inventory.childItems.Concat(front.childItems).Concat(back.childItems), destroyItem ?? DestroyTemporaryItem);
+                cleanup.Attempt("restore scalper player state", () =>
+                {
+                    entry.invElement = originalInventory;
+                    store.storeClientManager = originalManager;
+                    store.currentClientInstance = originalClient;
+                    store.currentNegociatedItem = originalNegotiated;
+                    store.modData = originalModData;
+                    store.runStats = originalStats;
+                    store.storeReputations = originalReputations;
+                    store.storeState = originalState;
+                    store.runID = originalRunId;
+                    store.playerCash = originalCash;
+                    store.wildFavor = originalFavor;
+                });
+                cleanup.Attempt("restore scalper front inventory", () => frontProperty.SetValue(entry, originalFront));
+                cleanup.Attempt("restore scalper back inventory", () => backProperty.SetValue(entry, originalBack));
+                cleanup.Attempt("restore scalper day", () => StoreStation.Instance.dayCounter = originalDay);
+            });
         }
 
         private static void CheckCustomers(Action<bool, string> check, List<GameItem> temporary, List<PixelWindow> windows)
@@ -1129,7 +1316,7 @@ namespace ProbablyTradingCards
             layout.Attach(back, 1, 0);
             window.Attach(layout);
             windows.Add(window);
-            try
+            ValidationCleanup.Run(() =>
             {
                 store.storeClientManager = new StoreClientManager();
                 store.currentClientInstance = null;
@@ -1453,20 +1640,24 @@ namespace ProbablyTradingCards
                 }
                 check(!StoreClientListDict.storeClientDict.ContainsKey(CardCustomers.SellerId) &&
                     !StoreClientListDict.storeClientDict.ContainsKey(CardCustomers.DistributorId), "disable removes supplier factories");
-            }
-            finally
+            }, cleanup =>
             {
-                foreach (GameItem item in front.childItems.Concat(back.childItems).ToList()) item.Destroy();
-                AccessTools.Property(typeof(EmporiumEntry), "frontInvinvElement").SetValue(entry, originalFront);
-                AccessTools.Property(typeof(EmporiumEntry), "backInvinvElement").SetValue(entry, originalBack);
-                store.storeClientManager = originalManager;
-                store.currentClientInstance = originalClient;
-                StoreStation.Instance.dayCounter = originalDay;
-                CardCustomers.Register();
-            }
+                cleanup.Each("destroy customer fixture item", front.childItems.Concat(back.childItems), DestroyTemporaryItem);
+                cleanup.Attempt("restore customer manager", () =>
+                {
+                    store.storeClientManager = originalManager;
+                    store.currentClientInstance = originalClient;
+                });
+                cleanup.Attempt("restore customer front inventory", () =>
+                    AccessTools.Property(typeof(EmporiumEntry), "frontInvinvElement").SetValue(entry, originalFront));
+                cleanup.Attempt("restore customer back inventory", () =>
+                    AccessTools.Property(typeof(EmporiumEntry), "backInvinvElement").SetValue(entry, originalBack));
+                cleanup.Attempt("restore customer day", () => StoreStation.Instance.dayCounter = originalDay);
+                cleanup.Attempt("restore customer registration", CardCustomers.Register);
+            });
         }
 
-        private static GameItem RoundTripItem(GameItem item, bool legacyHouseholdTypes = false)
+        private static GameItem RoundTripItem(GameItem item, bool legacyHouseholdTypes = false, Action<List<SaveItemNode>> prepare = null)
         {
             PlayerStore store = PlayerStore.Instance;
             store.savedItemFeatureList.Clear();
@@ -1477,6 +1668,7 @@ namespace ProbablyTradingCards
                 foreach (var node in saveItems)
                     if (node.itemTypes.Remove(TypeHelper.HOUSEHOLD_GOOD))
                         node.itemState.dict.Remove(TypeHelper.HOUSEHOLD_GOOD);
+            prepare?.Invoke(saveItems);
             GameItem restored = SaveManager.DecodeNodes(saveItems);
             try
             {
@@ -1544,7 +1736,7 @@ namespace ProbablyTradingCards
             window.Attach(inventory);
             GraphUtils.TryAcceptAll(inventory, scratcher);
             GeneralHelper.SetItemOwned(scratcher);
-            try
+            ValidationCleanup.Run(() =>
             {
                 restoredPack = RoundTripItem(pack);
                 GraphUtils.TryAcceptAll(inventory, pack);
@@ -1592,15 +1784,12 @@ namespace ProbablyTradingCards
                             "drag leaves sealed contents and tear rolls unchanged");
                     }
                 }
-            }
-            finally
+            }, cleanup =>
             {
-                drag.UpdateReset();
-                scratcher.Destroy();
-                pack.Destroy();
-                restoredPack?.Destroy();
-                window.Destroy();
-            }
+                cleanup.Attempt("reset native drag state", drag.UpdateReset);
+                cleanup.Each("destroy native input fixture", new[] { scratcher, pack, restoredPack }, DestroyTemporaryItem);
+                cleanup.Attempt("destroy native input window", window.Destroy);
+            });
         }
 
         private static void CheckOpening(Action<bool, string> check, List<GameItem> temporary, List<PixelWindow> windows)
@@ -1788,7 +1977,7 @@ namespace ProbablyTradingCards
             ContainerHelper.AllowOnlyOwnedItems(pockets);
             var nativeLoot = DirectoryMaster.Item("wire");
             var filler = DirectoryMaster.Item(NativeItems.CardId(0, 0));
-            try
+            ValidationCleanup.Run(() =>
             {
                 GeneralHelper.SetItemOwned(nativeLoot);
                 GeneralHelper.SetItemOwned(filler);
@@ -1825,14 +2014,12 @@ namespace ProbablyTradingCards
 
                 nativeLoot.Destroy();
                 CheckNativeScavengeAction(check, ground);
-            }
-            finally
+            }, cleanup =>
             {
-                foreach (GameItem item in ground.childItems.Concat(pockets.childItems).Concat(fullGround.childItems)
-                    .Concat(new[] { nativeLoot, filler }).Distinct().ToList())
-                    if (item is GameItemElement element && !element.IsDestroyed()) item.Destroy();
-                window.Destroy();
-            }
+                cleanup.Each("destroy scavenging fixture", ground.childItems.Concat(pockets.childItems)
+                    .Concat(fullGround.childItems).Concat(new[] { nativeLoot, filler }).Distinct(), DestroyTemporaryItem);
+                cleanup.Attempt("destroy scavenging window", window.Destroy);
+            });
         }
 
         private static int scavengingRolls;

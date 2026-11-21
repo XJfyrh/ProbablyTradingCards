@@ -157,7 +157,9 @@ namespace ProbablyTradingCards
             {
                 if (item == null || GeneralHelper.IsItemOwned(item)) return;
                 var booking = ReadPending();
-                if (booking?.MatchesCard(item) == true) Cancel(booking);
+                // 原版只对成交的外层物品调用 SellItem，册中卡牌随容器一起转手。
+                if (booking != null && (booking.MatchesCard(item) ||
+                    GraphUtils.FindAllChildrenType<GameItem>(item).Any(booking.MatchesCard))) Cancel(booking);
             }
         }
     }
