@@ -104,6 +104,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Release build failed ($LASTEXITCODE)." }
 
     $required = @("$name.dll", 'manifest.xml', 'README.md', 'CREDITS.md', 'LICENSE')
+    $required += @(Get-ChildItem -LiteralPath (Join-Path $projectDir 'Sounds') -Filter '*.wav' -File |
+        ForEach-Object { "Sounds/$($_.Name)" })
     $files = @(Get-ChildItem -LiteralPath $content -Recurse -Force -File | ForEach-Object {
         [IO.Path]::GetRelativePath($content, $_.FullName).Replace('\', '/')
     })

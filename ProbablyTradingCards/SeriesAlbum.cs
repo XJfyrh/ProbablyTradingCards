@@ -163,8 +163,8 @@ namespace ProbablyTradingCards
             var available = new List<int>();
             int current = 0;
             var progress = new Caption(160);
-            var previous = new MachineryButton("上一页", width: 78, height: 20);
-            var next = new MachineryButton("下一页", width: 78, height: 20);
+            var previous = new MachineryButton("上一页", width: 78, height: 20) { onClickAudio = null };
+            var next = new MachineryButton("下一页", width: 78, height: 20) { onClickAudio = null };
             var footer = MachineryStack.Horizontal(previous, progress, next);
             var spread = new GridPixelElement(1, 1, true);
             spread.AttachPos(MachineryStack.Vertical(pages, footer), 0, 0);
@@ -201,6 +201,7 @@ namespace ProbablyTradingCards
                 current = available[target];
                 album.ModifyTag(PageTag, tag => tag.Enable().SetInt(current));
                 Refresh();
+                CardSounds.Page();
             }
 
             previous.SetCallback(() => Turn(-1));

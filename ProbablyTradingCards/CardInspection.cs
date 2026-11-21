@@ -20,7 +20,7 @@ namespace ProbablyTradingCards
 
         private static LoadedMod FindMod(string id) => ModLoader.Mods.Find(m => m.Manifest?.ID == id);
 
-        internal static void Show(GameItem item)
+        internal static void Show(GameItem item, bool closeOnEscape = true)
         {
             if (!TradingCardsApi.TryGetCard(item, out var card, out int condition)) return;
             int definition = card.Id;
@@ -55,7 +55,7 @@ namespace ProbablyTradingCards
             float chromeHeight = (canSwitchArt ? 152 : 112) + (canBook && !showHeaderButton ? 40 : 0);
             float artHeight = Mathf.Min(720, availableHeight - chromeHeight - 40, (availableWidth - 80) * 1.5f);
             float artWidth = artHeight / 1.5f;
-            builder.SetSize(artWidth + 48, artHeight + chromeHeight).Center().SetDraggable(true).SetCloseOnEscape();
+            builder.SetSize(artWidth + 48, artHeight + chromeHeight).Center().SetDraggable(true).SetCloseOnEscape(closeOnEscape);
             builder.BeginColumn(8, TextAnchor.UpperCenter);
             if (showHeaderButton)
                 ConfigureAppointmentButton(AddHeaderButton(builder, frame), item, card, condition);

@@ -46,7 +46,11 @@ namespace ProbablyTradingCards
             ModHelper.RemoveDebugFunctions(ModId);
 #endif
             var ui = CustomUIManager.Instance;
-            if (ui != null) ui.CloseWindow(CardInspection.WindowId);
+            if (ui != null)
+            {
+                ui.CloseWindow(CardInspection.WindowId);
+                ui.CloseWindow(PackReveal.WindowId);
+            }
         }
     }
 }

@@ -47,11 +47,13 @@
       <ModTextures Include="Textures\Items\*.png" />
       <CardTextures Include="Textures\Cards\card_*.png" />
       <CardTextures Include="Textures\Cards\legends_album_bound.png;Textures\Cards\legends_album_sleeve.png" />
+      <ModSounds Include="Sounds\*.wav" />
     </ItemGroup>
     <MakeDir Directories="$(PackageDir)" />
     <Copy SourceFiles="$(TargetPath);manifest.xml;README.md;@(ModLicenseFile)" DestinationFolder="$(PackageDir)" />
     <Copy SourceFiles="@(ModTextures)" DestinationFolder="$(PackageDir)\Textures\Items" />
     <Copy SourceFiles="@(CardTextures)" DestinationFolder="$(PackageDir)\Textures\Paper" />
+    <Copy SourceFiles="@(ModSounds)" DestinationFolder="$(PackageDir)\Sounds" />
   </Target>
 </Project>
 

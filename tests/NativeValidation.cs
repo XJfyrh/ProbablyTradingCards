@@ -14,6 +14,7 @@ namespace ProbablyTradingCards
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "运行原生验证", Run);
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "卡牌数据快照", Snapshot);
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "拆包交互样品", CreateInteractionSamples);
+            ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "夜话揭牌试玩样品", CreateRevealSamples);
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "卡面品相样品", CreateCardArtSamples);
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "星港收藏簿样品", CreateLegendsSamples);
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "异次元卡商样品（保存27号档）", SeedBranchSellerPlaytest);
@@ -117,6 +118,43 @@ namespace ProbablyTradingCards
             }
             GameItem knife = DirectoryMaster.Item("box_cutter");
             if (!NativeItems.PlaceOwned(knife)) knife.Destroy();
+        }
+
+        private static void CreateRevealSamples()
+        {
+            var samples = new List<GameItem>
+            {
+                CreateRevealSample("揭牌① 普通包", 2, false, 99, 99, 99),
+                CreateRevealSample("揭牌② 手撕包", 7, false, 0, 99, 24),
+                CreateRevealSample("揭牌③ 刀切包", 7, false, 0, 99, 24),
+                CreateRevealSample("揭牌④ 二封包", 3, true, 99, 99, 99),
+                CreateRevealSample("揭牌⑤ R 包", 4, false, 99, 99, 99),
+                DirectoryMaster.Item("box_cutter"),
+                DirectoryMaster.Item(NativeItems.AlbumId)
+            };
+            if (samples.All(NativeItems.PlaceOwned)) return;
+
+            foreach (GameItem sample in samples) sample.Destroy();
+            ModEntry.Log.Warning("夜话揭牌试玩样品需要更多库存空间。");
+        }
+
+        private static GameItem CreateRevealSample(string name, int lastCard, bool resealed, params int[] tearRolls)
+        {
+            GameItem pack = DirectoryMaster.Item(NativeItems.PackId);
+            NativeItems.SetPackData(pack, new CardPack
+            {
+                kind = PackKind.NightStories,
+                resealed = resealed,
+                seal = resealed ? 3 : 0,
+                contents = new[] { 0, 1, lastCard }.Select(definition => new OwnedCard
+                {
+                    definition = definition,
+                    condition = resealed ? 0 : 2
+                }).ToList(),
+                tearRolls = tearRolls.ToList()
+            });
+            pack.SetName(name);
+            return pack;
         }
 
         public static void Snapshot() =>
@@ -1847,6 +1885,8 @@ namespace ProbablyTradingCards
                 entry.invElement = shortInventory;
                 entry.backInvinvElement.mayInventoryAddItemFunc = (_, __) => false;
                 check(!NativeItems.TryOpen(pack, out _), "space failure rejected");
+                NativeItems.OpenFromInteraction(pack);
+                check(!CustomUIManager.Instance.IsOpen(PackReveal.WindowId), "space failure does not start pack reveal");
                 check(pack.parentInventory == holding, "space failure keeps original pack");
                 check(shortInventory.childItems.Count == 0, "partial placement rolled back");
                 check(pack.GetTagReadonly(NativeItems.PackDataTag).GetString() == originalData, "retry preserves fixed contents");
@@ -1884,6 +1924,21 @@ namespace ProbablyTradingCards
                 check(fullInventory.childItems.Count == 3, "tool target callback creates three cards");
                 check(fullInventory.childItems.All(card => card.GetTagReadonly(NativeItems.ConditionTag).GetInt() == 2), "tool target preserves condition");
                 check(tool.parentInventory == toolInventory && !((GameItemElement)tool).IsDestroyed(), "cutter remains reusable");
+                var reveal = CustomUIManager.Instance.GetWindow(PackReveal.WindowId);
+                check(reveal != null && reveal.IsVisible, "successful cutter interaction starts pack reveal");
+                var revealAction = reveal.Get("pack_reveal_action");
+                revealAction.button.onClick.Invoke();
+                check(revealAction.GetText() == "收起" && fullInventory.childItems.Count == 3,
+                    "skipping the animation displays the existing result without creating cards");
+                var captions = reveal.root.GetComponentsInChildren<TMPro.TextMeshProUGUI>()
+                    .Where(label => label.gameObject.name == "reveal_caption").ToArray();
+                foreach (var caption in captions) caption.ForceMeshUpdate();
+                check(captions.Length >= 6 && captions.All(label => label.textInfo.characterInfo
+                        .Take(label.textInfo.characterCount).Any(character => character.isVisible)),
+                    "opening results show the rendered card names, rarities and conditions");
+                StoreUIManager.Instance.ResolveEscape();
+                check(!CustomUIManager.Instance.IsOpen(PackReveal.WindowId) &&
+                    !StoreUIManager.Instance.escapeUIManager.menuPanel.activeSelf, "Escape closes only the pack reveal");
                 var boxHolding = new GameGridInventory(4, 3);
                 var innerStorage = new GameGridInventory(24, 3);
                 var boxWindow = new PixelWindow();
@@ -1914,6 +1969,7 @@ namespace ProbablyTradingCards
             }
             finally
             {
+                CustomUIManager.Instance.CloseWindow(PackReveal.WindowId);
                 entry.invElement = originalInventory;
                 entry.backInvinvElement.mayInventoryAddItemFunc = originalBackRule;
             }
