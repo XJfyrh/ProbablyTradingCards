@@ -117,8 +117,8 @@ namespace ProbablyTradingCards
         private sealed class SpotlightReveal
         {
             internal const float Duration = 2.30f;
-            internal const float SettleAt = 0.76f;
-            private const float LiftAt = 0.14f;
+            internal const float LiftAt = 0.14f;
+            private const float SettleAt = 0.76f;
             private const float FocusInDuration = 0.42f;
             private const float FocusOutDuration = 0.30f;
             private const float SweepStart = 0.47f;
@@ -185,6 +185,7 @@ namespace ProbablyTradingCards
         private CustomUIWindow window;
         private CustomUIElement next;
         private CustomUIElement outcome;
+        private AudioSource superRareMusic;
         private bool withCutter;
         private bool resealed;
         private bool playedOpening;
@@ -397,6 +398,7 @@ namespace ProbablyTradingCards
         private void RestorePresentation()
         {
             finished = true;
+            if (superRareMusic != null) superRareMusic.Stop();
             var ui = CustomUIManager.Instance;
             if (ui != null && ui.GetWindow(CardInspection.WindowId) is CustomUIWindow inspection && !inspection.closeOnEscape)
                 inspection.Close();
@@ -452,8 +454,13 @@ namespace ProbablyTradingCards
 
         private void Advance()
         {
-            if (finished) window.Close();
-            else Finish();
+            if (finished)
+            {
+                window.Close();
+                return;
+            }
+            if (superRareMusic != null) superRareMusic.Stop();
+            Finish();
         }
 
         private void Finish()
@@ -493,10 +500,10 @@ namespace ProbablyTradingCards
             if (!playAudio) return;
             if (cue >= 0) CardSounds.Land();
             if (cue == 1) CardSounds.Rare();
-            if (!playedSuperRare && spotlightAge >= SpotlightReveal.SettleAt && spotlightAge < SpotlightReveal.Duration)
+            if (!playedSuperRare && spotlightAge >= SpotlightReveal.LiftAt && spotlightAge < SpotlightReveal.Duration)
             {
                 playedSuperRare = true;
-                CardSounds.SuperRare();
+                superRareMusic = CardSounds.PlaySuperRare(gameObject, spotlightAge - SpotlightReveal.LiftAt);
             }
         }
 
