@@ -19,14 +19,18 @@ namespace ProbablyTradingCards
         private const int BookWidth = 4 * CaptionWidth + SpineWidth + 2 * PageMargin;
         private const int BookHeight = 2 * (VerticalMargin + PocketRowHeight + CardCaptionHeight);
         private const float PocketScale = 1.75f;
-        private static readonly Color Ink = new Color32(35, 19, 31, 255);
         private static readonly Color SleeveTint = new Color32(240, 225, 255, 209);
-        private static readonly Color MutedInk = new Color32(195, 176, 154, 255);
+        private static readonly Color PaperTone = new Color32(166, 122, 101, 255);
+        private static readonly Color FrameTone = new Color32(67, 53, 50, 255);
+        private static readonly Color ProgressInk = new Color32(218, 202, 182, 255);
+        private static readonly Color32 PageInk = new Color32(169, 157, 145, 255);
+        private static readonly Color32 PaperTextOutline = new Color32(42, 26, 30, 255);
 
         private sealed class Caption : TagElement
         {
             private readonly int fixedHeight;
             private CustomUITooltipTrigger tooltip;
+            private bool outlined;
 
             internal Caption(int width, int fixedHeight = 0) : base(width, false)
             {
@@ -39,14 +43,24 @@ namespace ProbablyTradingCards
             public override int HeightPixelsClamp(int height) =>
                 fixedHeight > 0 ? fixedHeight : base.HeightPixelsClamp(height);
 
-            internal void Write(string value, Color color)
+            internal void Write(string value, Color color, bool bold = false, bool withOutline = false)
             {
-                if (GetText() == value) return;
-                SetText(value);
+                bool textChanged = GetText() != value;
+                if (textChanged) SetText(value);
                 var label = textNode.text;
+                FontStyles style = bold ? FontStyles.Bold : FontStyles.Normal;
+                bool styleChanged = label.fontStyle != style;
+                label.fontStyle = style;
                 label.color = color;
-                if (fixedHeight == 0) return;
+                if (outlined != withOutline)
+                {
+                    outlined = withOutline;
+                    if (outlined) label.outlineColor = PaperTextOutline;
+                    label.outlineWidth = outlined ? 0.18f : 0f;
+                }
+                if (fixedHeight == 0 || (!textChanged && !styleChanged)) return;
 
+                label.verticalAlignment = VerticalAlignmentOptions.Top;
                 label.enableWordWrapping = true;
                 label.overflowMode = TextOverflowModes.Ellipsis;
                 Rect bounds = label.rectTransform.rect;
@@ -64,14 +78,18 @@ namespace ProbablyTradingCards
 
         private sealed class BookSpread : GridPixelElement
         {
+            private readonly bool namesOnPaper;
             internal readonly string Rarity;
+            internal readonly CanvasGroup Opacity;
             internal readonly List<(int id, GameGridInventory pocket, Caption caption)> Slots =
                 new List<(int, GameGridInventory, Caption)>();
             internal bool Secret => Rarity == null;
 
-            internal BookSpread(IReadOnlyList<int> cardIds, string rarity, Sprite sleeveArt) : base(7, 6, true)
+            internal BookSpread(IReadOnlyList<int> cardIds, string rarity, Sprite sleeveArt, bool namesOnPaper) : base(7, 6, true)
             {
                 Rarity = rarity;
+                this.namesOnPaper = namesOnPaper;
+                Opacity = handler.gameObject.AddComponent<CanvasGroup>();
                 SetSpacing(0, 0);
                 int[] rows = { VerticalMargin, PocketRowHeight, CardCaptionHeight, PocketRowHeight, CardCaptionHeight, VerticalMargin };
                 for (int row = 0; row < rows.Length; row++)
@@ -85,11 +103,10 @@ namespace ProbablyTradingCards
                     int y = 1 + (index % 4 / 2) * 2;
                     var caption = new Caption(CaptionWidth, CardCaptionHeight);
                     AttachPos(caption, x, y + 1);
+                    caption.rectTransform.anchoredPosition = Vector2.up * 6f;
                     if (index >= cardIds.Count) continue;
 
                     int id = cardIds[index];
-                    var definition = CardGame.Catalogue[id];
-                    if (!Secret) caption.Write(definition.Name, Ink);
                     var pocket = new GameGridInventory(1, 2).SetMachineryStyle();
                     AttachPos(pocket, x, y);
                     StylePocket(pocket, sleeveArt);
@@ -100,18 +117,27 @@ namespace ProbablyTradingCards
                 }
             }
 
-            internal bool RefreshKnownCards()
+            internal bool RefreshCaptions()
             {
-                if (!Secret) return true;
                 bool any = false;
                 foreach (var (id, pocket, caption) in Slots)
                 {
-                    bool known = pocket.childItems.Count > 0 || AlternateCardProgress.IsDiscovered(id);
-                    pocket.handler.gameObject.SetActive(known);
-                    caption.Write(known ? CardGame.Catalogue[id].AlternateTitle : "", Ink);
+                    bool owned = pocket.childItems.Count > 0;
+                    bool known = !Secret || owned || AlternateCardProgress.IsDiscovered(id);
+                    if (Secret) pocket.handler.gameObject.SetActive(known);
+                    var definition = CardGame.Catalogue[id];
+                    string name = Secret ? definition.AlternateTitle : definition.Name;
+                    caption.Write(known ? name : "", NameColor(definition.Rarity, owned), bold: owned,
+                        withOutline: namesOnPaper && owned);
                     any |= known;
                 }
-                return any;
+                return !Secret || any;
+            }
+
+            private Color NameColor(string rarity, bool owned)
+            {
+                Color ink = namesOnPaper ? CardRarityPalette.OnPaper(rarity) : CardRarityPalette.For(rarity);
+                return owned ? CardRarityPalette.For(rarity) : Color.Lerp(ink, namesOnPaper ? PaperTone : FrameTone, 0.16f);
             }
         }
 
@@ -120,6 +146,12 @@ namespace ProbablyTradingCards
             pocket.rectTransform.localScale = new Vector3(PocketScale, PocketScale, 1);
             pocket.rectTransform.anchoredPosition +=
                 new Vector2(-pocket.widthPixels, pocket.heightPixels) * ((PocketScale - 1) / 2);
+            pocket.onSlotRemoveItemEndFunc += (item, _, __) =>
+            {
+                if (!(item is GameItemElement card)) return;
+                card.handler.rectTransform.localScale = Vector3.one;
+                card.fakeMiddle.SetParent(card.handler).rectTransform.localScale = Vector3.one;
+            };
             if (art == null) return;
 
             pocket.SetTransparency(1);
@@ -143,7 +175,8 @@ namespace ProbablyTradingCards
             var mod = ModLoader.Mods.Find(entry => entry.Manifest?.ID == ModEntry.ModId);
             Sprite AlbumSprite(string key) =>
                 mod != null && mod.PaperSprites.TryGetValue(key, out Sprite sprite) ? sprite : null;
-            AddBookSpreads(book, series.CardIds, AlbumSprite("legends_album_sleeve"));
+            Sprite art = AlbumSprite("legends_album_bound");
+            AddBookSpreads(book, series.CardIds, AlbumSprite("legends_album_sleeve"), art != null);
             foreach (var page in book)
             {
                 pages.Add(page);
@@ -151,20 +184,20 @@ namespace ProbablyTradingCards
             }
 
             var paper = TreeNodeRender.Instantiate().SetParent(pages.handler);
-            Sprite art = AlbumSprite("legends_album_bound");
             if (art != null)
                 MachineryStyle.SetSimple(paper, art, Color.white);
             else
-                MachineryStyle.SetSliced(paper, MachineryStyle.BevelFrame, new Color32(67, 53, 50, 255));
+                MachineryStyle.SetSliced(paper, MachineryStyle.BevelFrame, FrameTone);
             MachineryStyle.Place(paper, 0, 0, BookWidth, BookHeight);
             paper.image.raycastTarget = false;
             paper.rectTransform.SetAsFirstSibling();
+            var turn = AlbumPageTurn.Create(paper.image, art);
 
             var available = new List<int>();
             int current = 0;
             var progress = new Caption(160);
-            var previous = new MachineryButton("上一页", width: 78, height: 20);
-            var next = new MachineryButton("下一页", width: 78, height: 20);
+            var previous = new MachineryButton("上一页", width: 78, height: 20) { onClickAudio = null };
+            var next = new MachineryButton("下一页", width: 78, height: 20) { onClickAudio = null };
             var footer = MachineryStack.Horizontal(previous, progress, next);
             var spread = new GridPixelElement(1, 1, true);
             spread.AttachPos(MachineryStack.Vertical(pages, footer), 0, 0);
@@ -174,21 +207,22 @@ namespace ProbablyTradingCards
             {
                 available.Clear();
                 for (int index = 0; index < book.Count; index++)
-                    if (book[index].RefreshKnownCards()) available.Add(index);
+                    if (book[index].RefreshCaptions()) available.Add(index);
                 if (!available.Contains(current)) current = available[0];
                 for (int index = 0; index < book.Count; index++)
                     book[index].handler.gameObject.SetActive(index == current);
 
                 var page = book[current];
                 int number = available.IndexOf(current);
-                string section = page.Rarity;
+                string section = CardRarityPalette.AlternateCaption;
                 if (!page.Secret)
                 {
                     var sameRarity = book.Where(item => item.Rarity == page.Rarity).SelectMany(item => item.Slots).ToList();
-                    section += "  " + sameRarity.Count(slot => slot.pocket.childItems.Count > 0) + "/" + sameRarity.Count;
+                    section = CardRarityPalette.Tint(page.Rarity, CardRarityPalette.For(page.Rarity)) + "  " +
+                        sameRarity.Count(slot => slot.pocket.childItems.Count > 0) + "/" + sameRarity.Count;
                 }
-                else section = "异画";
-                progress.Write(section + "    第 " + (number + 1) + "/" + available.Count + " 页", MutedInk);
+                string pageNumber = $"第 {number + 1}/{available.Count} 页";
+                progress.Write($"<b>{section}</b>    <size=84%>{CardRarityPalette.Tint(pageNumber, PageInk)}</size>", ProgressInk);
                 previous.SetDisabled(number == 0);
                 next.SetDisabled(number == available.Count - 1);
                 window.Validate();
@@ -196,11 +230,18 @@ namespace ProbablyTradingCards
 
             void Turn(int delta)
             {
+                if (turn.Turning) return;
                 int target = available.IndexOf(current) + delta;
                 if (target < 0 || target >= available.Count) return;
-                current = available[target];
-                album.ModifyTag(PageTag, tag => tag.Enable().SetInt(current));
-                Refresh();
+                int nextPage = available[target];
+                album.ModifyTag(PageTag, tag => tag.Enable().SetInt(nextPage));
+                turn.Play(delta, book[current].Opacity, () =>
+                {
+                    current = nextPage;
+                    Refresh();
+                    return book[current].Opacity;
+                });
+                CardSounds.Page();
             }
 
             previous.SetCallback(() => Turn(-1));
@@ -208,6 +249,7 @@ namespace ProbablyTradingCards
             window.AddInventoryStateChangeAction(Refresh);
             window.openCallback += () =>
             {
+                if (turn.Turning) turn.enabled = false;
                 current = album.GetTagReadonly(PageTag).GetInt();
                 Refresh();
             };
@@ -233,7 +275,7 @@ namespace ProbablyTradingCards
                     item.contentWindow.stateChangeActionFunc?.Invoke();
         }
 
-        private static void AddBookSpreads(List<BookSpread> pages, IReadOnlyList<int> cardIds, Sprite sleeveArt)
+        private static void AddBookSpreads(List<BookSpread> pages, IReadOnlyList<int> cardIds, Sprite sleeveArt, bool namesOnPaper)
         {
             var ids = new List<int>();
             string section = null;
@@ -244,13 +286,13 @@ namespace ProbablyTradingCards
                 int capacity = section == null ? 6 : 8;
                 if (ids.Count > 0 && (section != nextSection || ids.Count == capacity))
                 {
-                    pages.Add(new BookSpread(ids, section, sleeveArt));
+                    pages.Add(new BookSpread(ids, section, sleeveArt, namesOnPaper));
                     ids.Clear();
                 }
                 ids.Add(id);
                 section = nextSection;
             }
-            if (ids.Count > 0) pages.Add(new BookSpread(ids, section, sleeveArt));
+            if (ids.Count > 0) pages.Add(new BookSpread(ids, section, sleeveArt, namesOnPaper));
         }
     }
 }

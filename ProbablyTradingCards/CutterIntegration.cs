@@ -5,6 +5,8 @@ namespace ProbablyTradingCards
     [HarmonyPatch(typeof(MeleeWeaponItemDirectory), "CreateBoxCutter")]
     public static class CutterIntegration
     {
+        internal const string ItemId = "box_cutter";
+
         private static void Postfix(GameItem __result)
         {
             __result.mayThisTargetItemFunc += CanCutPack;
@@ -13,7 +15,7 @@ namespace ProbablyTradingCards
         }
 
         public static bool CanCutPack(GameItem cutter, GameItem pack) =>
-            cutter != null && cutter.identifier == "box_cutter" && cutter.parentInventory != null &&
+            cutter != null && cutter.identifier == ItemId && cutter.parentInventory != null &&
             (NativeItems.IsPack(pack) || NativeItems.IsBox(pack)) && pack.parentInventory != null &&
             GeneralHelper.IsItemEffectivelyOwned(cutter) && GeneralHelper.IsItemEffectivelyOwned(pack);
 

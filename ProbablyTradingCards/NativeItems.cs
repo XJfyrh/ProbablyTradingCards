@@ -284,9 +284,11 @@ namespace ProbablyTradingCards
             for (int index = 0; index < series.CardIds.Count; index++)
             {
                 int definition = series.CardIds[index];
+                var cardDefinition = CardGame.Catalogue[definition];
                 var pocket = new GameGridInventory(1, 2);
                 pockets.Add((definition, pocket));
-                layout.Attach(new TagElement().SetText(CardGame.Catalogue[definition].Name),
+                layout.Attach(new TagElement().SetText(cardDefinition.Name,
+                        color: CardRarityPalette.NativeColor(CardRarityPalette.For(cardDefinition.Rarity))),
                     index % 3, index / 3 * 2, minimumWidth: 66, minimumHeight: 16);
                 layout.Attach(pocket, index % 3, index / 3 * 2 + 1,
                     minimumWidth: 66, minimumHeight: 38);
@@ -321,12 +323,20 @@ namespace ProbablyTradingCards
 
         public static void OpenFromInteraction(GameItem pack, GameItem cutter = null)
         {
-            TryOpen(pack, out string message, cutter);
+            bool showReveal = pack != null && TryGetPackKind(pack.identifier, out var kind) &&
+                (kind == PackKind.NightStories || StationLegends.IsLegendsPack(kind));
+            if (TryOpen(pack, out string message, cutter, showReveal, out var reveal) &&
+                reveal != null && PackReveal.TryShow(reveal)) return;
             StoreUIManager.Instance.Notify(message);
         }
 
-        public static bool TryOpen(GameItem pack, out string message, GameItem cutter = null)
+        public static bool TryOpen(GameItem pack, out string message, GameItem cutter = null) =>
+            TryOpen(pack, out message, cutter, false, out _);
+
+        private static bool TryOpen(GameItem pack, out string message, GameItem cutter, bool showReveal,
+            out PackReveal.Result reveal)
         {
+            reveal = null;
             if ((!IsPack(pack) && !IsBox(pack)) || pack.parentInventory == null ||
                 !GeneralHelper.IsItemEffectivelyOwned(pack))
             {
@@ -339,6 +349,7 @@ namespace ProbablyTradingCards
                 return false;
             }
             var created = new List<GameItem>();
+            PackReveal.Result opening = null;
             int alternate = -1;
             try
             {
@@ -363,13 +374,20 @@ namespace ProbablyTradingCards
                     }
                     alternate = data.resolvedAlternate ?? -1;
                     List<OwnedCard> contents = CardGame.OpeningContents(data, cutter != null);
+                    var revealedCards = showReveal ? new PackReveal.Card[contents.Count] : null;
                     int damaged = 0;
                     for (int index = 0; index < contents.Count; index++)
                     {
                         OwnedCard card = contents[index];
-                        if (card.condition < data.contents[index].condition) damaged++;
-                        created.Add(DirectoryMaster.Item(CardId(card.definition, card.condition)));
+                        int originalCondition = data.contents[index].condition;
+                        if (card.condition < originalCondition) damaged++;
+                        GameItem item = DirectoryMaster.Item(CardId(card.definition, card.condition));
+                        created.Add(item);
+                        if (revealedCards != null)
+                            revealedCards[index] = new PackReveal.Card(item, card.definition, card.condition, originalCondition);
                     }
+                    if (revealedCards != null)
+                        opening = new PackReveal.Result(data.kind, revealedCards, cutter != null, data.resealed);
                     message = $"拆出{contents.Count}张卡。";
                     if (damaged > 0) message += $"其中{damaged}张受损。";
                     if (data.resealed) message += "封边还粘着旧胶，这包重新封过。";
@@ -393,6 +411,7 @@ namespace ProbablyTradingCards
             }
             pack.Destroy();
             if (alternate >= 0) AlternateCardProgress.Discover(alternate);
+            reveal = opening;
             return true;
         }
     }

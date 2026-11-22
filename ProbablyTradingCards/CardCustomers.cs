@@ -174,8 +174,15 @@ namespace ProbablyTradingCards
             {
                 if (stock != null) return;
                 useWeeklyQuota = weekly;
-                stock = weekly ? products.ToDictionary(product => product.Key, product =>
-                    product.Value - ModHelper.GetModDataInt(ModEntry.ModId, PurchaseKey(product.Key))) : products;
+                stock = new Dictionary<string, int>
+                {
+                    [CutterIntegration.ItemId] = 1 - ModHelper.GetModDataInt(ModEntry.ModId, PurchaseKey(CutterIntegration.ItemId))
+                };
+                foreach (var product in products)
+                {
+                    int purchased = weekly ? ModHelper.GetModDataInt(ModEntry.ModId, PurchaseKey(product.Key)) : 0;
+                    stock.Add(product.Key, product.Value - purchased);
+                }
                 Refill();
             }
             void OrderBuiltIns() => BeginOrder(BuiltInStock(day), weekly: true);
@@ -207,7 +214,7 @@ namespace ProbablyTradingCards
                 if (!offers.TryGetValue(id, out var offer) || !ReferenceEquals(item, offer)) return;
                 offers.Remove(id);
                 stock[id]--;
-                if (useWeeklyQuota)
+                if (useWeeklyQuota || id == CutterIntegration.ItemId)
                 {
                     string key = PurchaseKey(id);
                     int purchases = ModHelper.GetModDataInt(ModEntry.ModId, key);
@@ -276,7 +283,7 @@ namespace ProbablyTradingCards
         {
             GameItem item = NativeItems.TryGetPackKind(id, out PackKind kind) ?
                 NativeItems.CreateGenuinePack(kind) : DirectoryMaster.Item(id);
-            if (item.IsTag(NativeItems.AlbumTag)) return item;
+            if (id == CutterIntegration.ItemId || item.IsTag(NativeItems.AlbumTag)) return item;
             var premium = new ItemFeature(ItemFeature.FeatureType.TemporaryBuying)
             {
                 identifier = DistributorPremiumId,

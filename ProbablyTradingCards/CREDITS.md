@@ -4,7 +4,20 @@
 
 卡面和包装使用 AI 辅助绘制，制图时参考了游戏中的角色、物品和场景。《空间站夜话》的卡包和集换册图标来自为模组生成的图集。《码头来信》的示例重用了本模组的卡面。
 
-源码构建引用本机安装的游戏程序集。模组通过原游戏接口使用游戏内已有的资源。分发包包含模组程序集、模组纹理、清单与玩家文档。[官方模组行为准则](https://github.com/dragonpan2/probably-stolen-modding/blob/main/CodeOfConduct.zh-CN.md)
+源码构建引用本机安装的游戏程序集。模组通过原游戏接口使用游戏内已有的资源。分发包包含模组程序集、模组纹理、音效、清单与玩家文档。[官方模组行为准则](https://github.com/dragonpan2/probably-stolen-modding/blob/main/CodeOfConduct.zh-CN.md)
+
+## 音效
+
+《空间站夜话》的 SR 揭牌使用本模组原创的复古合成器乐句。《空间站传奇》的 SR、SSR 和 UR 使用《图画展览会》开篇《漫步》的变奏，由本模组根据穆索尔斯基的公版钢琴谱重新配器和制作录音。[1874 年手稿及 1886 年初版](https://imslp.org/wiki/Pictures_at_an_Exhibition_(Mussorgsky,_Modest))
+
+以下外部音效素材均采用 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)。
+
+- 传奇揭牌的提琴、大提琴和低音提琴采样来自 Versilian Studios 与贡献者。[VSCO 2 Community Edition](https://versilian-studios.com/vsco-community/)
+- 撕包、落牌和入册使用 Kenney 的 `cards-pack-open-2.ogg`、`card-place-1.ogg` 和 `card-slide-4.ogg`。[Casino Audio](https://kenney.nl/assets/casino-audio)
+- R 揭牌提示和展示柜放置使用 Kenney 的 `pluck_002.ogg` 和 `glass_003.ogg`。[Interface Sounds](https://kenney.nl/assets/interface-sounds)
+- 割包使用 Sadiquecat 录制的美工刀切割纸板音效。[Small utility knife and carboard cutting (mke600)](https://freesound.org/people/Sadiquecat/sounds/815423/)
+- 翻页使用 OwlStorm（Ashe Kirk）的翻页录音。[Page Turn (1)](https://freesound.org/people/OwlStorm/sounds/151220/)
+- 异画套印用上述翻页、卡片滑动与落牌采样。原创乐句使用 VCSL 的 Steinway B 钢琴与 VSCO 2 Community Edition 低弦采样。[VCSL 钢琴采样](https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B)
 
 ## 授权范围
 

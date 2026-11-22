@@ -14,6 +14,9 @@ namespace ProbablyTradingCards
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "运行原生验证", Run);
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "卡牌数据快照", Snapshot);
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "拆包交互样品", CreateInteractionSamples);
+            ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "夜话揭牌试玩样品", CreateRevealSamples);
+            ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "传奇揭牌试玩样品", CreateLegendsRevealSamples);
+            ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "传奇异画试玩样品", CreateAlternateRevealSamples);
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "卡面品相样品", CreateCardArtSamples);
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "星港收藏簿样品", CreateLegendsSamples);
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "异次元卡商样品（保存27号档）", SeedBranchSellerPlaytest);
@@ -84,7 +87,7 @@ namespace ProbablyTradingCards
                 return;
             }
             var regular = CardGame.Series.ForPack(PackKind.Slim).CardIds.Where(id => !CardGame.Catalogue[id].IsAlternate).ToArray();
-            foreach (int definition in new[] { regular.First(), regular.Last(), StationLegends.EleanorRev })
+            foreach (int definition in new[] { regular.First(), regular.Last(), 39, 46, StationLegends.EleanorRev })
             {
                 var card = DirectoryMaster.Item(NativeItems.CardId(definition, 2));
                 GeneralHelper.SetItemOwned(card);
@@ -117,6 +120,84 @@ namespace ProbablyTradingCards
             }
             GameItem knife = DirectoryMaster.Item("box_cutter");
             if (!NativeItems.PlaceOwned(knife)) knife.Destroy();
+        }
+
+        private static void CreateRevealSamples()
+        {
+            var samples = new List<GameItem>
+            {
+                CreateRevealSample("揭牌① 普通包", 2, false, 99, 99, 99),
+                CreateRevealSample("揭牌② 手撕包", 7, false, 0, 99, 24),
+                CreateRevealSample("揭牌③ 刀切包", 7, false, 0, 99, 24),
+                CreateRevealSample("揭牌④ 二封包", 3, true, 99, 99, 99),
+                CreateRevealSample("揭牌⑤ R 包", 4, false, 99, 99, 99),
+                DirectoryMaster.Item("box_cutter"),
+                DirectoryMaster.Item(NativeItems.AlbumId)
+            };
+            PlaceRevealSamples(samples, "夜话");
+        }
+
+        private static void CreateLegendsRevealSamples()
+        {
+            var samples = new List<GameItem>
+            {
+                CreateRevealSample("传奇① 全 C 瘦包（二封）", PackKind.Slim, true, new[] { 9, 10, 11 }),
+                CreateRevealSample("传奇② R 瘦包", PackKind.Slim, false, new[] { 9, 10, 16 }),
+                CreateRevealSample("传奇③ SR 瘦包", PackKind.Slim, false, new[] { 9, 10, 30 }),
+                CreateRevealSample("传奇④ Eleanor 瘦包", PackKind.Slim, false, new[] { 9, 10, 39 }),
+                CreateRevealSample("传奇⑤ 房契瘦包", PackKind.Slim, false, new[] { 9, 10, 46 }),
+                CreateRevealSample("传奇⑥ Eleanor 与房契肥包", PackKind.Fat, false,
+                    new[] { 9, 10, 11, 12, 16, 17, 39, 46, 30 }),
+                CreateRevealSample("传奇⑦ 美食游客异画瘦包", PackKind.Slim, false, new[] { 9, 10, 16 },
+                    alternate: StationLegends.Foodie)
+            };
+            PlaceRevealSamples(samples, "传奇");
+        }
+
+        private static void CreateAlternateRevealSamples()
+        {
+            PlaceRevealSamples(new List<GameItem>
+            {
+                CreateRevealSample("异画① 今夜加餐", PackKind.Slim, false, new[] { 9, 10, 16 }, alternate: StationLegends.Foodie),
+                CreateRevealSample("异画② 跳过测试", PackKind.Slim, false, new[] { 9, 10, 16 }, alternate: StationLegends.Foodie),
+                CreateRevealSample("异画③ Eleanor", PackKind.Slim, false, new[] { 9, 10, 39 }, alternate: StationLegends.EleanorRev),
+                CreateRevealSample("异画④ 房契与今夜加餐", PackKind.Slim, false, new[] { 9, 46, 16 }, alternate: StationLegends.Foodie),
+                CreateRevealSample("异画⑤ Joe Wild", PackKind.Slim, false, new[] { 9, 10, 46 }, alternate: StationLegends.Joe)
+            }, "传奇异画");
+        }
+
+        private static void PlaceRevealSamples(List<GameItem> samples, string series)
+        {
+            if (samples.All(NativeItems.PlaceOwned)) return;
+            foreach (GameItem sample in samples) sample.Destroy();
+            ModEntry.Log.Warning($"{series}揭牌试玩样品需要更多库存空间。");
+        }
+
+        private static GameItem CreateRevealSample(string name, int lastCard, bool resealed, params int[] tearRolls) =>
+            CreateRevealSample(name, PackKind.NightStories, resealed, new[] { 0, 1, lastCard }, tearRolls);
+
+        private static GameItem CreateRevealSample(string name, PackKind kind, bool resealed, int[] definitions,
+            int[] tearRolls = null, int? alternate = null)
+        {
+            GameItem pack = DirectoryMaster.Item(NativeItems.PackItemId(kind));
+            bool legends = StationLegends.IsLegendsPack(kind);
+            NativeItems.SetPackData(pack, new CardPack
+            {
+                kind = kind,
+                resealed = resealed,
+                seal = resealed ? 3 : 0,
+                contents = definitions.Select(definition => new OwnedCard
+                {
+                    definition = definition,
+                    condition = resealed ? 0 : 2
+                }).ToList(),
+                tearRolls = (tearRolls ?? Enumerable.Repeat(99, definitions.Length)).ToList(),
+                alternateRoll = legends ? (alternate.HasValue ? 0 : StationLegends.RollScale - 1) : (int?)null,
+                alternatePick = legends ? 0 : (int?)null,
+                resolvedAlternate = alternate
+            });
+            pack.SetName(name);
+            return pack;
         }
 
         public static void Snapshot() =>
@@ -300,7 +381,7 @@ namespace ProbablyTradingCards
                 CheckScalperCleanup(check, temporary, windows);
                 CheckAppointments(check, temporary, windows);
                 CheckBranchAlternateSeller(check, temporary, windows);
-                CheckLegends(check, temporary);
+                CheckLegends(check, temporary, windows);
                 foreach (var series in CardGame.Series.All.Where(series => series.IsExpansion))
                     CheckExpansion(check, series, temporary, windows, viewingInventory);
                 CheckAlternateArt(check, temporary, viewingInventory);
@@ -330,7 +411,7 @@ namespace ProbablyTradingCards
             if (item != null && (!(item is GameItemElement element) || !element.IsDestroyed())) item.Destroy();
         }
 
-        private static void CheckLegends(Action<bool, string> check, List<GameItem> temporary)
+        private static void CheckLegends(Action<bool, string> check, List<GameItem> temporary, List<PixelWindow> windows)
         {
             GameItem Create(string id)
             {
@@ -382,6 +463,7 @@ namespace ProbablyTradingCards
                 "native DecodeNodes restores each card to its designated pocket after saved node positions change");
             check(GraphUtils.FindChildrenType<GameItem>(restoredAlbum).Count == 3, "book saves cards on unselected spreads");
             check(restoredAlbum.flavorText == album.flavorText, "legends album roundtrip preserves flavor");
+            CheckAlbumTransfers(check, sleeve, (GameItemElement)leftLeaf, windows);
             check(Collectors.Profiles[(int)CollectorKind.Alternate].IsAvailable(23) ==
                 AlternateCardProgress.HasDiscovered(), "collector is available only after a discovered card");
             check(ordinary.IsTag(TypeHelper.LUXURY_ITEM) && alternate.IsTag(TypeHelper.LUXURY_ITEM), "UR and SSR alternate are luxury");
@@ -409,6 +491,54 @@ namespace ProbablyTradingCards
             check(CardShowcase.Contribution(CollectorKind.Prestige, legends.Cards[rightId]) == 20 &&
                 CardShowcase.Contribution(CollectorKind.Packs, legends.Cards[rightId]) == 0,
                 "displayed UR invites a relevant buyer, not a pack buyer");
+        }
+
+        private static void CheckAlbumTransfers(Action<bool, string> check, GameGridInventory sleeve,
+            GameItemElement card, List<PixelWindow> windows)
+        {
+            var window = new PixelWindow();
+            windows.Add(window);
+            var counter = new GameGridInventory(18, 4);
+            window.Attach(counter);
+            int gridSize = UISettings.current.gridSize;
+
+            void CheckScale()
+            {
+                var cardScale = card.handler.rectTransform.localScale;
+                var dragScale = card.fakeMiddle.rectTransform.localScale;
+                check(cardScale == Vector3.one && dragScale == Vector3.one,
+                    $"card and drag ghost use normal scale outside the album (card: {cardScale}, drag: {dragScale})");
+            }
+
+            void DragToCounter(int column, int row)
+            {
+                var expected = new Vector2((column + 0.5f) * gridSize, -(row + 1) * gridSize);
+                var dropPoint = counter.rectTransform.TransformPoint(expected);
+                card.ToggleFakeBackground(true);
+                try
+                {
+                    var slot = counter.TryInventorySlot(card, 1, dropPoint, card.modifiedShape, card.modifiedState);
+                    check(slot.TryAcceptOnce() == 1 && card.parentInventory == counter && counter.childItems.Contains(card),
+                        "counter accepts the same card entity");
+                }
+                finally
+                {
+                    card.ToggleFakeBackground(false);
+                    card.Validate();
+                }
+                CheckScale();
+                var actual = (Vector2)counter.rectTransform.InverseTransformPoint(card.GetRotatorCenteredPosition());
+                check((actual - expected).sqrMagnitude < 0.01f,
+                    $"card renders at its assigned counter position (expected: {expected}, actual: {actual})");
+            }
+
+            DragToCounter(3, 1);
+            DragToCounter(15, 0);
+            check(GraphUtils.TryAcceptAll(sleeve, card) == 0 && card.parentInventory == sleeve,
+                "card can return to the enlarged sleeve");
+            check(GraphUtils.TryAcceptAll(counter, card) == 0 && card.parentInventory == counter,
+                "quick transfer removes the card from the sleeve without a drag ghost");
+            CheckScale();
         }
 
         private static void CheckAlternateArt(Action<bool, string> check, List<GameItem> temporary,
@@ -1559,6 +1689,13 @@ namespace ProbablyTradingCards
                 PlaceDistributorOrder(distributor, 0);
                 check(front.childItems.Count(item => item.identifier == NativeItems.PackId) == 1, "distributor puts one copy of a SKU on the counter");
                 check(front.childItems.Count(item => item.identifier == NativeItems.AlbumId) == 1, "distributor always carries one album");
+                GameItem cutter = front.childItems.Single(item => item.identifier == CutterIntegration.ItemId);
+                check(cutter.GetNegociatedValue() == cutter.GetBaseValue() &&
+                    cutter.FindItemFeatureByID(CardCustomers.DistributorPremiumId) == null,
+                    "distributor sells one native box cutter at its regular price");
+                BuyFromDistributor(cutter, (int)cutter.GetNegociatedValue());
+                check(front.childItems.All(item => item.identifier != CutterIntegration.ItemId),
+                    "the box cutter does not replenish on purchase");
                 for (int purchase = 0; purchase < CardCustomerRules.WeeklyNightPacks; purchase++)
                 {
                     GameItem pack = front.childItems.First(item => item.identifier == NativeItems.PackId);
@@ -1570,6 +1707,8 @@ namespace ProbablyTradingCards
                     temporary.Add(restoredOffer);
                     check(restoredOffer.GetNegociatedValue() == 48 && !NativeItems.ReadPack(restoredOffer).resealed, "saved offer retains price and genuine contents");
                     BuyFromDistributor(pack, 48);
+                    if (purchase == 0)
+                        check(CutterIntegration.CanCutPack(cutter, pack), "the purchased box cutter can open an owned pack");
                     check(pack.GetNegociatedValue() == CardGame.PackValue(PackKind.NightStories) && pack.FindItemFeatureByID(CardCustomers.DistributorPremiumId) == null, "native purchase cleanup removes the supplier premium");
                     check(JsonConvert.SerializeObject(data) == JsonConvert.SerializeObject(NativeItems.ReadPack(pack)), "purchase preserves hidden contents and tear rolls");
                     GameItem restoredPurchase = RoundTripItem(pack);
@@ -1583,7 +1722,7 @@ namespace ProbablyTradingCards
                 GameItem album = front.childItems.Single(item => item.identifier == NativeItems.AlbumId);
                 BuyFromDistributor(album, (int)album.GetNegociatedValue());
                 album.Destroy();
-                check(front.childItems.Count == 0, "album and pack quotas stop each SKU from replenishing");
+                check(front.childItems.Count == 0, "album, pack and cutter quotas stop each SKU from replenishing");
                 distributor = CardCustomers.CreateDistributor();
                 PlaceDistributorOrder(distributor, 0);
                 check(front.childItems.Count == 0, "same week's quotas survive reconstruction of the issuer");
@@ -1598,7 +1737,8 @@ namespace ProbablyTradingCards
                     StoreStation.Instance.dayCounter = day;
                     distributor = CardCustomers.CreateDistributor();
                     PlaceDistributorOrder(distributor, 0);
-                    var expected = new List<string> { NativeItems.PackId, NativeItems.SlimPackId, NativeItems.LegendsAlbumId, NativeItems.AlbumId };
+                    var expected = new List<string> { CutterIntegration.ItemId, NativeItems.PackId, NativeItems.SlimPackId,
+                        NativeItems.LegendsAlbumId, NativeItems.AlbumId };
                     if (day >= 16) expected.Add(NativeItems.FatPackId);
                     if (day >= 23) expected.Add(NativeItems.SlimBoxId);
                     if (day >= 30) expected.Add(NativeItems.FatBoxId);
@@ -1628,7 +1768,7 @@ namespace ProbablyTradingCards
                     StoreStation.Instance.dayCounter = expansions.Min(series => series.ReleaseDay) - 1;
                     check(CardCustomers.CreateDistributor().mainDialogue.choices.Count == 0,
                         "unreleased expansions do not change the built-in order");
-                    StoreStation.Instance.dayCounter = expansions.Max(series => series.ReleaseDay);
+                    StoreStation.Instance.dayCounter = Math.Max(37, expansions.Max(series => series.ReleaseDay));
                 }
                 for (int index = 0; index < expansions.Count; index++)
                 {
@@ -1640,16 +1780,29 @@ namespace ProbablyTradingCards
                     string packId = NativeItems.PackItemId(series.PackKind);
                     var albumOffer = front.childItems.Single(item => item.identifier == albumId);
                     var packOffer = front.childItems.Single(item => item.identifier == packId);
-                    check(front.childItems.Count == 2 && !NativeItems.ReadPack(packOffer).resealed &&
+                    check(front.childItems.Count == (index == 0 ? 3 : 2) && !NativeItems.ReadPack(packOffer).resealed &&
                         packOffer.GetNegociatedValue() == Math.Round(packOffer.GetBaseValue() * 1.2) &&
                         albumOffer.GetNegociatedValue() == albumOffer.GetBaseValue(), "expansion order uses its own shelf and prices");
+                    if (index == 0)
+                    {
+                        GameItem tool = front.childItems.Single(item => item.identifier == CutterIntegration.ItemId);
+                        BuyFromDistributor(tool, (int)tool.GetNegociatedValue());
+                        tool.Destroy();
+                    }
                     BuyFromDistributor(albumOffer, (int)albumOffer.GetNegociatedValue());
                     albumOffer.Destroy();
                     BuyFromDistributor(packOffer, (int)packOffer.GetNegociatedValue());
                     packOffer.Destroy();
                     check(front.childItems.Count == 1 && front.childItems.Single().identifier == packId,
                         "expansion sale replenishes its pack and limits its album to one per visit");
-                    foreach (GameItem item in front.childItems.ToList()) item.Destroy();
+                    ClearCounter();
+                }
+                if (expansions.Count > 0)
+                {
+                    PlaceDistributorOrder(CardCustomers.CreateDistributor(), 0);
+                    check(front.childItems.All(item => item.identifier != CutterIntegration.ItemId),
+                        "expansion and built-in orders share one weekly box cutter quota");
+                    ClearCounter();
                 }
                 CardCustomers.Unregister();
                 check(!StoreClientList.generalPool.entries.Any(item => item.create == (Func<StoreClient>)CardCustomers.CreateSeller),
@@ -1847,6 +2000,8 @@ namespace ProbablyTradingCards
                 entry.invElement = shortInventory;
                 entry.backInvinvElement.mayInventoryAddItemFunc = (_, __) => false;
                 check(!NativeItems.TryOpen(pack, out _), "space failure rejected");
+                NativeItems.OpenFromInteraction(pack);
+                check(!CustomUIManager.Instance.IsOpen(PackReveal.WindowId), "space failure does not start pack reveal");
                 check(pack.parentInventory == holding, "space failure keeps original pack");
                 check(shortInventory.childItems.Count == 0, "partial placement rolled back");
                 check(pack.GetTagReadonly(NativeItems.PackDataTag).GetString() == originalData, "retry preserves fixed contents");
@@ -1884,6 +2039,21 @@ namespace ProbablyTradingCards
                 check(fullInventory.childItems.Count == 3, "tool target callback creates three cards");
                 check(fullInventory.childItems.All(card => card.GetTagReadonly(NativeItems.ConditionTag).GetInt() == 2), "tool target preserves condition");
                 check(tool.parentInventory == toolInventory && !((GameItemElement)tool).IsDestroyed(), "cutter remains reusable");
+                var reveal = CustomUIManager.Instance.GetWindow(PackReveal.WindowId);
+                check(reveal != null && reveal.IsVisible, "successful cutter interaction starts pack reveal");
+                var revealAction = reveal.Get("pack_reveal_action");
+                revealAction.button.onClick.Invoke();
+                check(revealAction.GetText() == "收起" && fullInventory.childItems.Count == 3,
+                    "skipping the animation displays the existing result without creating cards");
+                var captions = reveal.root.GetComponentsInChildren<TMPro.TextMeshProUGUI>()
+                    .Where(label => label.gameObject.name == "reveal_caption").ToArray();
+                foreach (var caption in captions) caption.ForceMeshUpdate();
+                check(captions.Length >= 6 && captions.All(label => label.textInfo.characterInfo
+                        .Take(label.textInfo.characterCount).Any(character => character.isVisible)),
+                    "opening results show the rendered card names, rarities and conditions");
+                StoreUIManager.Instance.ResolveEscape();
+                check(!CustomUIManager.Instance.IsOpen(PackReveal.WindowId) &&
+                    !StoreUIManager.Instance.escapeUIManager.menuPanel.activeSelf, "Escape closes only the pack reveal");
                 var boxHolding = new GameGridInventory(4, 3);
                 var innerStorage = new GameGridInventory(24, 3);
                 var boxWindow = new PixelWindow();
@@ -1914,6 +2084,7 @@ namespace ProbablyTradingCards
             }
             finally
             {
+                CustomUIManager.Instance.CloseWindow(PackReveal.WindowId);
                 entry.invElement = originalInventory;
                 entry.backInvinvElement.mayInventoryAddItemFunc = originalBackRule;
             }

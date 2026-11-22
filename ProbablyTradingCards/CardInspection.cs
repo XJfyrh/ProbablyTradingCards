@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -6,6 +7,7 @@ namespace ProbablyTradingCards
     internal static class CardInspection
     {
         internal const string WindowId = "neon_card_inspection";
+        private static readonly Color32 FlavorInk = new Color32(180, 168, 161, 255);
 
         internal static void Configure(GameItem item, int definition, int condition)
         {
@@ -20,13 +22,21 @@ namespace ProbablyTradingCards
 
         private static LoadedMod FindMod(string id) => ModLoader.Mods.Find(m => m.Manifest?.ID == id);
 
-        internal static void Show(GameItem item)
+        internal static string PaperArtKey(int definition, int condition) =>
+            NativeItems.SpriteKey(definition, CardGame.Catalogue[definition].Series.PackKind == PackKind.NightStories
+                ? condition : 2);
+
+        internal static Sprite WearArt(LoadedMod core, int condition) =>
+            condition != 2 && core != null && core.PaperSprites.TryGetValue("card_legends_wear_" + condition, out var wear)
+                ? wear : null;
+
+        internal static void Show(GameItem item, bool closeOnEscape = true)
         {
             if (!TradingCardsApi.TryGetCard(item, out var card, out int condition)) return;
             int definition = card.Id;
             var mod = FindMod(card.Series.OwnerId);
             bool overlayWear = card.Series.PackKind != PackKind.NightStories;
-            string artKey = NativeItems.SpriteKey(definition, overlayWear ? 2 : condition);
+            string artKey = PaperArtKey(definition, condition);
             if (mod == null || !mod.PaperSprites.TryGetValue(artKey, out Sprite art))
             {
                 ModEntry.Log.Error($"找不到卡面 {card.Series.OwnerId}/Textures/Paper/{artKey}.png");
@@ -45,36 +55,46 @@ namespace ProbablyTradingCards
             bool oilSelected = canSwitchArt && item.spritePath == oilIconKey;
             bool canBook = RareCardAppointments.CanBook(item, card);
 
-            var builder = CustomUIManager.Window(WindowId, item.GetDisplayName());
+            string displayName = item.GetDisplayName();
+            var builder = CustomUIManager.Window(WindowId, displayName);
             if (builder == null) return;
             var canvas = builder.Handle.root.GetComponentInParent<Canvas>();
             float availableHeight = Screen.height / canvas.scaleFactor;
             float availableWidth = Screen.width / canvas.scaleFactor;
             var frame = builder.Handle.frame;
+            var title = frame != null ? frame.titleText : null;
+            if (title != null)
+            {
+                title.color = CardRarityPalette.For(card.Rarity);
+                title.enableWordWrapping = false;
+                title.fontSizeMax = title.fontSize;
+                title.fontSizeMin = Mathf.Min(18f, title.fontSizeMax);
+                title.enableAutoSizing = true;
+                title.overflowMode = TextOverflowModes.Ellipsis;
+            }
             bool showHeaderButton = canBook && frame != null && frame.closeButton != null;
-            float chromeHeight = (canSwitchArt ? 152 : 112) + (canBook && !showHeaderButton ? 40 : 0);
+            const float controlHeight = 40f;
+            float chromeHeight = 112f + (canSwitchArt ? controlHeight : 0f) + (canBook && !showHeaderButton ? controlHeight : 0f);
             float artHeight = Mathf.Min(720, availableHeight - chromeHeight - 40, (availableWidth - 80) * 1.5f);
             float artWidth = artHeight / 1.5f;
-            builder.SetSize(artWidth + 48, artHeight + chromeHeight).Center().SetDraggable(true).SetCloseOnEscape();
-            builder.BeginColumn(8, TextAnchor.UpperCenter);
+            if (builder.CurrentContainer.TryGetComponent(out VerticalLayoutGroup content))
+                content.childAlignment = TextAnchor.UpperCenter;
+            builder.BeginColumn(0, TextAnchor.UpperCenter);
             if (showHeaderButton)
                 ConfigureAppointmentButton(AddHeaderButton(builder, frame), item, card, condition);
             else if (canBook)
+            {
                 ConfigureAppointmentButton(AddAppointmentButton(builder), item, card, condition);
+                builder.AddSpace(8);
+            }
 
             builder.AddImage(oilSelected ? oilArt : art, artWidth, artHeight, "card_art");
-            var image = builder.Last.image;
-            image.preserveAspect = true;
-            if (overlayWear && condition != 2 &&
-                FindMod(ModEntry.ModId).PaperSprites.TryGetValue("card_legends_wear_" + condition, out Sprite wear))
+            var slot = builder.Last.image;
+            slot.preserveAspect = true;
+            var image = BuildCardFace(slot, canvas, card);
+            if (overlayWear && WearArt(FindMod(ModEntry.ModId), condition) is Sprite wear)
             {
-                var overlay = new GameObject("card_wear", typeof(RectTransform), typeof(UnityEngine.UI.Image));
-                overlay.transform.SetParent(image.transform, false);
-                var rect = (RectTransform)overlay.transform;
-                rect.anchorMin = Vector2.zero;
-                rect.anchorMax = Vector2.one;
-                rect.offsetMin = rect.offsetMax = Vector2.zero;
-                var wearImage = overlay.GetComponent<UnityEngine.UI.Image>();
+                var wearImage = AddLayer(image.rectTransform, "card_wear").gameObject.AddComponent<Image>();
                 wearImage.sprite = wear;
                 wearImage.preserveAspect = true;
                 wearImage.raycastTarget = false;
@@ -82,18 +102,75 @@ namespace ProbablyTradingCards
             if (canSwitchArt)
             {
                 string SwitchLabel() => oilSelected ? "切换为蓝晒" : "切换为油画";
-                var button = builder.AddButton(SwitchLabel(), null, "card_art_variant").Last;
+                var button = builder.AddSpace(8).AddButton(SwitchLabel(), null, "card_art_variant").Last;
                 button.OnClick(() =>
                 {
                     oilSelected = !oilSelected;
-                    image.sprite = oilSelected ? oilArt : art;
+                    slot.sprite = image.sprite = oilSelected ? oilArt : art;
                     if (GeneralHelper.IsItemEffectivelyOwned(item))
                         item.SetSpriteQuick(card.Series.OwnerId, oilSelected ? oilIconKey : iconKey);
                     button.SetText(SwitchLabel());
                 });
             }
-            builder.AddLabel(card.Flavor, "card_flavor");
+            if (!string.IsNullOrWhiteSpace(card.Flavor))
+            {
+                var flavor = builder.AddSpace(16).AddLabel(card.Flavor, "card_flavor").Last;
+                flavor.text.color = FlavorInk;
+                flavor.text.fontSize = Mathf.Min(16f, flavor.text.fontSize);
+                flavor.text.fontWeight = FontWeight.Regular;
+                flavor.text.enableWordWrapping = true;
+                flavor.text.alignment = TextAlignmentOptions.Top;
+                float noteHeight = Mathf.Ceil(flavor.text.GetPreferredValues(artWidth, float.PositiveInfinity).y);
+                float visibleHeight = Mathf.Min(56f, noteHeight);
+                flavor.SetPreferredSize(artWidth, visibleHeight);
+                chromeHeight += Mathf.Max(0f, visibleHeight - 32f);
+                if (visibleHeight < noteHeight)
+                {
+                    flavor.text.overflowMode = TextOverflowModes.Ellipsis;
+                    flavor.text.raycastTarget = true;
+                    flavor.SetTooltip(card.Flavor);
+                }
+            }
+            builder.SetSize(artWidth + 48, artHeight + chromeHeight).Center().SetDraggable(true).SetCloseOnEscape(closeOnEscape);
             builder.End().Show();
+            if (title != null)
+            {
+                CustomUIBuilder.RebuildLayout(builder.Handle.Rect);
+                title.ForceMeshUpdate();
+                if (title.isTextTruncated)
+                {
+                    title.raycastTarget = true;
+                    title.gameObject.AddComponent<CustomUITooltipTrigger>().tooltipText = displayName;
+                }
+            }
+        }
+
+        private static Image BuildCardFace(Image slot, Canvas canvas, CardDefinition card)
+        {
+            bool foil = card.Rarity == "SSR" || card.Rarity == "UR";
+            var frame = PrintedCardOutline.For(card);
+            if (!foil && !frame.HasValue) return slot;
+
+            slot.color = Color.clear;
+            slot.raycastTarget = false;
+            var face = AddLayer(slot.rectTransform, "card_face");
+            if (frame.HasValue) PrintedCardOutline.Attach(face, frame.Value);
+            var front = AddLayer(face, "card_artwork").gameObject.AddComponent<Image>();
+            front.sprite = slot.sprite;
+            front.preserveAspect = true;
+            front.raycastTarget = false;
+            if (foil) slot.gameObject.AddComponent<CardInspectionFoil>().Attach(slot.rectTransform, face, canvas, card);
+            return front;
+        }
+
+        private static RectTransform AddLayer(RectTransform parent, string name)
+        {
+            var layer = (RectTransform)new GameObject(name, typeof(RectTransform)).transform;
+            layer.SetParent(parent, false);
+            layer.anchorMin = Vector2.zero;
+            layer.anchorMax = Vector2.one;
+            layer.offsetMin = layer.offsetMax = Vector2.zero;
+            return layer;
         }
 
         private static CustomUIElement AddAppointmentButton(CustomUIBuilder builder) =>
@@ -114,12 +191,7 @@ namespace ProbablyTradingCards
             rect.pivot = new Vector2(1f, 0.5f);
             rect.anchoredPosition = new Vector2(-closeButtonClearance, -headerCenter);
             rect.sizeDelta = new Vector2(width, 26);
-            if (frame.titleText != null)
-            {
-                frame.titleText.margin += new Vector4(0, 0, width + 8, 0);
-                frame.titleText.enableWordWrapping = false;
-                frame.titleText.overflowMode = TMPro.TextOverflowModes.Ellipsis;
-            }
+            if (frame.titleText != null) frame.titleText.margin += new Vector4(0, 0, width + 8, 0);
             return button;
         }
 
