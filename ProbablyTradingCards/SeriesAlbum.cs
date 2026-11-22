@@ -120,6 +120,12 @@ namespace ProbablyTradingCards
             pocket.rectTransform.localScale = new Vector3(PocketScale, PocketScale, 1);
             pocket.rectTransform.anchoredPosition +=
                 new Vector2(-pocket.widthPixels, pocket.heightPixels) * ((PocketScale - 1) / 2);
+            pocket.onSlotRemoveItemEndFunc += (item, _, __) =>
+            {
+                if (!(item is GameItemElement card)) return;
+                card.handler.rectTransform.localScale = Vector3.one;
+                card.fakeMiddle.SetParent(card.handler).rectTransform.localScale = Vector3.one;
+            };
             if (art == null) return;
 
             pocket.SetTransparency(1);
