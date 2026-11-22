@@ -64,6 +64,7 @@ namespace ProbablyTradingCards
             internal CanvasGroup Opacity;
             internal SpotlightReveal Spotlight;
             internal CanvasGroup Caption;
+            internal CanvasGroup AlternateMark;
             internal GameObject ResultDetails;
             internal Button Button;
             internal int Rank;
@@ -191,6 +192,7 @@ namespace ProbablyTradingCards
         private CustomUIElement next;
         private CustomUIElement outcome;
         private AudioSource revealMusic;
+        private AudioSource alternatePress;
         private LegendsReveal legends;
         private bool withCutter;
         private bool resealed;
@@ -389,11 +391,16 @@ namespace ProbablyTradingCards
             var resultDetails = deferDetails ? details.gameObject : null;
             if (resultDetails != null) resultDetails.SetActive(false);
             caption.gameObject.SetActive(false);
+            var alternateMark = legendPack && definition.IsAlternate
+                ? AddCaption(root, "隐藏异画", 17, 126, new Color32(244, 211, 173, 255)).gameObject.AddComponent<CanvasGroup>()
+                : null;
+            if (alternateMark != null) alternateMark.gameObject.SetActive(false);
             return new RevealedCard
             {
                 Root = root, Surface = surface, Back = back.gameObject, Face = art, Border = border,
                 Opacity = root.gameObject.AddComponent<CanvasGroup>(), RareSweep = rareSweep, Spotlight = spotlight,
-                Caption = caption.gameObject.AddComponent<CanvasGroup>(), ResultDetails = resultDetails, Button = button, Rank = rank
+                Caption = caption.gameObject.AddComponent<CanvasGroup>(), AlternateMark = alternateMark,
+                ResultDetails = resultDetails, Button = button, Rank = rank
             };
         }
 
@@ -492,6 +499,7 @@ namespace ProbablyTradingCards
                 return;
             }
             if (revealMusic != null) revealMusic.Stop();
+            if (alternatePress != null) alternatePress.Stop();
             Finish();
         }
 

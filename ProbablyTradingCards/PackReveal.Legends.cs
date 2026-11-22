@@ -11,6 +11,7 @@ namespace ProbablyTradingCards
             private static readonly float[] FatTurns = { 0.64f, 0.81f, 0.98f, 1.22f, 1.39f, 1.56f, 1.91f, 2.30f, 2.69f };
             private static readonly Vector2 Center = new Vector2(0f, 24f);
             private const float ScoreStart = 0.14f;
+            private const string AlternatePressKey = "card_legends_alternate_press";
             private readonly LegendCard[] shots;
             private readonly LegendCard feature;
             private readonly Image felt;
@@ -23,13 +24,15 @@ namespace ProbablyTradingCards
 
             internal LegendsReveal(RevealedCard[] cards, RectTransform stage, Image felt, Image shade, RectTransform seal, bool fat)
             {
-                int featureIndex = -1, highest = 3;
+                int featureIndex = -1, alternateIndex = -1, highest = 3;
                 for (int i = 0; i < cards.Length; i++)
                 {
+                    if (cards[i].AlternateMark != null) alternateIndex = i;
                     if (cards[i].Rank < highest) continue;
                     featureIndex = i;
                     highest = cards[i].Rank;
                 }
+                if (featureIndex < 0) featureIndex = alternateIndex;
 
                 var turns = fat ? FatTurns : SlimTurns;
                 shots = new LegendCard[cards.Length];
@@ -58,7 +61,7 @@ namespace ProbablyTradingCards
                     for (int i = 0; i < featureIndex; i++)
                         shots[i].SetFloatMotion(weightless.Shadows, stage.sizeDelta, fat);
                 }
-                else film = new FilmReveal(cards[featureIndex]);
+                else if (feature.Rank == 3) film = new FilmReveal(cards[featureIndex]);
                 cards[featureIndex].Root.SetAsLastSibling();
             }
 
@@ -99,8 +102,9 @@ namespace ProbablyTradingCards
                     float release = 1f - Ease(feature.Duration - 0.37f, feature.Duration - 0.04f, featureAge);
                     focus = Ease(ScoreStart, feature.LockAt - 0.13f, featureAge) * release;
                     darkness = weightless == null ? focus : WeightlessReveal.DarknessAt(featureAge) * release;
-                    felt.color = Color.Lerp(feltColor, weightless == null
-                        ? new Color32(22, 27, 44, 255) : new Color32(14, 14, 23, 255), darkness);
+                    var darkFelt = feature.Rank < 3 ? new Color32(44, 25, 35, 255) : weightless == null
+                        ? new Color32(22, 27, 44, 255) : new Color32(14, 14, 23, 255);
+                    felt.color = Color.Lerp(feltColor, darkFelt, darkness);
                     shade.color = Color.Lerp(shadeColor, new Color32(13, 12, 21, weightless == null ? (byte)163 : (byte)211), darkness);
                 }
 
@@ -110,10 +114,12 @@ namespace ProbablyTradingCards
                 foreach (var shot in shots)
                 {
                     float age = elapsed - shot.At;
-                    if (shot.Draw(age, focus, backdropDim, featureAge) && (weightless == null || shot != feature))
+                    if (shot.Draw(age, focus, backdropDim, featureAge) && !shot.IsAlternate && (weightless == null || shot != feature))
                         turned = Mathf.Max(turned, shot.Rank);
                     if (playAudio && shot.GetCue(age, out string key, out float offset))
                         owner.revealMusic = CardSounds.PlayRevealMusic(owner.gameObject, key, offset, owner.revealMusic);
+                    if (playAudio && shot.GetPressCue(age, out float pressOffset))
+                        owner.alternatePress = CardSounds.PlayRevealMusic(owner.gameObject, AlternatePressKey, pressOffset, owner.alternatePress);
                 }
                 if (film != null) film.Draw(featureAge, feature.LockAt);
                 weightless?.Draw(owner.wrapper, elapsed, featureAge, focus);
@@ -131,16 +137,22 @@ namespace ProbablyTradingCards
                 private readonly bool featured;
                 private readonly RectTransform reflectedLight;
                 private readonly CanvasGroup reflection;
+                private readonly AlternatePrint print;
                 private LegendSoftSpot shadow;
                 private WeightlessReveal.FloatMotion flight;
                 private Vector2 floatOffset;
                 private float floatAngle;
                 private bool restsAside;
                 private bool played;
+                private bool playedPress;
                 internal float At { get; }
                 internal int Rank => card.Rank;
+                internal bool IsAlternate => card.AlternateMark != null;
                 private bool Suspended => featured && Rank == 4;
-                internal float LockAt => Suspended ? WeightlessReveal.FlipAt : 0.755f;
+                private bool AlternateFeatured => featured && Rank < 3;
+                internal float LockAt => Suspended ? WeightlessReveal.FlipAt : AlternateFeatured ? 0.58f : 0.755f;
+                private float PrintAt => Suspended ? LockAt + 0.035f : featured && Rank == 3 ? LockAt + 0.10f :
+                    AlternateFeatured ? 0.18f : 0.04f;
                 internal float Duration { get; }
 
                 internal LegendCard(RevealedCard card, float at, Vector2 seat, float seatScale, bool featured)
@@ -150,9 +162,10 @@ namespace ProbablyTradingCards
                     this.seatScale = seatScale;
                     this.featured = featured;
                     At = at;
-                    Duration = featured ? (Suspended ? 3.30f : 2.58f) : Rank >= 3 ? 0.51f :
-                        Rank == 2 ? 1.00f : Rank == 1 ? 0.34f : 0.20f;
-                    if (Rank == 0 || featured) return;
+                    Duration = featured ? (Suspended ? 3.30f : AlternateFeatured ? 2.46f : 2.58f) :
+                        Rank == 2 ? 1.00f : IsAlternate ? 0.85f : Rank >= 3 ? 0.51f : Rank == 1 ? 0.34f : 0.20f;
+                    if (IsAlternate) print = new AlternatePrint(card.Face);
+                    if (Rank == 0 || featured || IsAlternate) return;
 
                     card.Face.gameObject.AddComponent<Mask>();
                     reflectedLight = MakeRect(card.Face.rectTransform, "reflected_light", new Vector2(56, 310), Vector2.zero);
@@ -224,6 +237,14 @@ namespace ProbablyTradingCards
                     card.Opacity.alpha = featured ? 1f : 1f - backdropDim;
                     if (Rank > 0 && turnAge >= 0f) card.Border.color = Color.Lerp(Color.white, RankColor(Rank), Ease(0f, 0.22f, turnAge));
                     if (reflectedLight != null) DrawReflection(age);
+                    if (print != null)
+                    {
+                        float printAge = age - PrintAt;
+                        print.Draw(printAge);
+                        float mark = Ease(0.50f, 0.73f, printAge);
+                        card.AlternateMark.gameObject.SetActive(mark > 0f);
+                        card.AlternateMark.alpha = mark * card.Caption.alpha;
+                    }
                     return card.RevealFace(turnAge);
                 }
 
@@ -239,12 +260,23 @@ namespace ProbablyTradingCards
                 internal bool GetCue(float age, out string key, out float offset)
                 {
                     key = null;
-                    offset = age - (featured ? ScoreStart : Rank == 2 ? 0.03f : 0.06f);
-                    if (Rank < 2 || played || offset < 0f || age >= Duration) return false;
+                    offset = age - (AlternateFeatured ? PrintAt : featured ? ScoreStart : Rank == 2 ? 0.03f : 0.06f);
+                    if (played || offset < 0f || age >= Duration ||
+                        (!AlternateFeatured && (Rank < 2 || (IsAlternate && !featured)))) return false;
                     played = true;
-                    if (Rank == 2) key = "card_legends_sr";
+                    if (AlternateFeatured) key = "card_legends_alternate";
+                    else if (Rank == 2) key = "card_legends_sr";
                     else if (Rank == 3) key = featured ? "card_legends_ssr" : "card_legends_ssr_short";
                     else key = featured ? "card_legends_ur" : "card_legends_ur_short";
+                    return true;
+                }
+
+                internal bool GetPressCue(float age, out float offset)
+                {
+                    offset = age - PrintAt;
+                    if (!IsAlternate || AlternateFeatured || playedPress || offset < 0f || offset >= AlternatePrint.Duration)
+                        return false;
+                    playedPress = true;
                     return true;
                 }
             }

@@ -17,6 +17,7 @@
 - R 揭牌提示和展示柜放置使用 Kenney 的 `pluck_002.ogg` 和 `glass_003.ogg`。[Interface Sounds](https://kenney.nl/assets/interface-sounds)
 - 割包使用 Sadiquecat 录制的美工刀切割纸板音效。[Small utility knife and carboard cutting (mke600)](https://freesound.org/people/Sadiquecat/sounds/815423/)
 - 翻页使用 OwlStorm（Ashe Kirk）的翻页录音。[Page Turn (1)](https://freesound.org/people/OwlStorm/sounds/151220/)
+- 异画套印用上述翻页、卡片滑动与落牌采样。原创乐句使用 VCSL 的 Steinway B 钢琴与 VSCO 2 Community Edition 低弦采样。[VCSL 钢琴采样](https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B)
 
 ## 授权范围
 

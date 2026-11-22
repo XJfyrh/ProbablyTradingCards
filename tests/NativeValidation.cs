@@ -16,6 +16,7 @@ namespace ProbablyTradingCards
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "拆包交互样品", CreateInteractionSamples);
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "夜话揭牌试玩样品", CreateRevealSamples);
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "传奇揭牌试玩样品", CreateLegendsRevealSamples);
+            ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "传奇异画试玩样品", CreateAlternateRevealSamples);
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "卡面品相样品", CreateCardArtSamples);
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "星港收藏簿样品", CreateLegendsSamples);
             ModHelper.AddDebugFunction(ModEntry.ModId, ModHelper.DEBUG_CATEGORY_SPECIAL, "异次元卡商样品（保存27号档）", SeedBranchSellerPlaytest);
@@ -151,6 +152,18 @@ namespace ProbablyTradingCards
                     alternate: StationLegends.Foodie)
             };
             PlaceRevealSamples(samples, "传奇");
+        }
+
+        private static void CreateAlternateRevealSamples()
+        {
+            PlaceRevealSamples(new List<GameItem>
+            {
+                CreateRevealSample("异画① 今夜加餐", PackKind.Slim, false, new[] { 9, 10, 16 }, alternate: StationLegends.Foodie),
+                CreateRevealSample("异画② 跳过测试", PackKind.Slim, false, new[] { 9, 10, 16 }, alternate: StationLegends.Foodie),
+                CreateRevealSample("异画③ Eleanor", PackKind.Slim, false, new[] { 9, 10, 39 }, alternate: StationLegends.EleanorRev),
+                CreateRevealSample("异画④ 房契与今夜加餐", PackKind.Slim, false, new[] { 9, 46, 16 }, alternate: StationLegends.Foodie),
+                CreateRevealSample("异画⑤ Joe Wild", PackKind.Slim, false, new[] { 9, 10, 46 }, alternate: StationLegends.Joe)
+            }, "传奇异画");
         }
 
         private static void PlaceRevealSamples(List<GameItem> samples, string series)
