@@ -368,7 +368,7 @@ namespace ProbablyTradingCards
                 CheckScalperCleanup(check, temporary, windows);
                 CheckAppointments(check, temporary, windows);
                 CheckBranchAlternateSeller(check, temporary, windows);
-                CheckLegends(check, temporary);
+                CheckLegends(check, temporary, windows);
                 foreach (var series in CardGame.Series.All.Where(series => series.IsExpansion))
                     CheckExpansion(check, series, temporary, windows, viewingInventory);
                 CheckAlternateArt(check, temporary, viewingInventory);
@@ -398,7 +398,7 @@ namespace ProbablyTradingCards
             if (item != null && (!(item is GameItemElement element) || !element.IsDestroyed())) item.Destroy();
         }
 
-        private static void CheckLegends(Action<bool, string> check, List<GameItem> temporary)
+        private static void CheckLegends(Action<bool, string> check, List<GameItem> temporary, List<PixelWindow> windows)
         {
             GameItem Create(string id)
             {
@@ -450,6 +450,7 @@ namespace ProbablyTradingCards
                 "native DecodeNodes restores each card to its designated pocket after saved node positions change");
             check(GraphUtils.FindChildrenType<GameItem>(restoredAlbum).Count == 3, "book saves cards on unselected spreads");
             check(restoredAlbum.flavorText == album.flavorText, "legends album roundtrip preserves flavor");
+            CheckAlbumTransfers(check, sleeve, (GameItemElement)leftLeaf, windows);
             check(Collectors.Profiles[(int)CollectorKind.Alternate].IsAvailable(23) ==
                 AlternateCardProgress.HasDiscovered(), "collector is available only after a discovered card");
             check(ordinary.IsTag(TypeHelper.LUXURY_ITEM) && alternate.IsTag(TypeHelper.LUXURY_ITEM), "UR and SSR alternate are luxury");
@@ -477,6 +478,54 @@ namespace ProbablyTradingCards
             check(CardShowcase.Contribution(CollectorKind.Prestige, legends.Cards[rightId]) == 20 &&
                 CardShowcase.Contribution(CollectorKind.Packs, legends.Cards[rightId]) == 0,
                 "displayed UR invites a relevant buyer, not a pack buyer");
+        }
+
+        private static void CheckAlbumTransfers(Action<bool, string> check, GameGridInventory sleeve,
+            GameItemElement card, List<PixelWindow> windows)
+        {
+            var window = new PixelWindow();
+            windows.Add(window);
+            var counter = new GameGridInventory(18, 4);
+            window.Attach(counter);
+            int gridSize = UISettings.current.gridSize;
+
+            void CheckScale()
+            {
+                var cardScale = card.handler.rectTransform.localScale;
+                var dragScale = card.fakeMiddle.rectTransform.localScale;
+                check(cardScale == Vector3.one && dragScale == Vector3.one,
+                    $"card and drag ghost use normal scale outside the album (card: {cardScale}, drag: {dragScale})");
+            }
+
+            void DragToCounter(int column, int row)
+            {
+                var expected = new Vector2((column + 0.5f) * gridSize, -(row + 1) * gridSize);
+                var dropPoint = counter.rectTransform.TransformPoint(expected);
+                card.ToggleFakeBackground(true);
+                try
+                {
+                    var slot = counter.TryInventorySlot(card, 1, dropPoint, card.modifiedShape, card.modifiedState);
+                    check(slot.TryAcceptOnce() == 1 && card.parentInventory == counter && counter.childItems.Contains(card),
+                        "counter accepts the same card entity");
+                }
+                finally
+                {
+                    card.ToggleFakeBackground(false);
+                    card.Validate();
+                }
+                CheckScale();
+                var actual = (Vector2)counter.rectTransform.InverseTransformPoint(card.GetRotatorCenteredPosition());
+                check((actual - expected).sqrMagnitude < 0.01f,
+                    $"card renders at its assigned counter position (expected: {expected}, actual: {actual})");
+            }
+
+            DragToCounter(3, 1);
+            DragToCounter(15, 0);
+            check(GraphUtils.TryAcceptAll(sleeve, card) == 0 && card.parentInventory == sleeve,
+                "card can return to the enlarged sleeve");
+            check(GraphUtils.TryAcceptAll(counter, card) == 0 && card.parentInventory == counter,
+                "quick transfer removes the card from the sleeve without a drag ghost");
+            CheckScale();
         }
 
         private static void CheckAlternateArt(Action<bool, string> check, List<GameItem> temporary,
