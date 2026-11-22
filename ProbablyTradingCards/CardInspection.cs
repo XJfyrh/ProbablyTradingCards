@@ -91,17 +91,10 @@ namespace ProbablyTradingCards
             builder.AddImage(oilSelected ? oilArt : art, artWidth, artHeight, "card_art");
             var slot = builder.Last.image;
             slot.preserveAspect = true;
-            bool foil = card.Rarity == "SSR" || card.Rarity == "UR";
-            var image = foil ? slot.gameObject.AddComponent<CardInspectionFoil>().Attach(slot, canvas, card) : slot;
+            var image = BuildCardFace(slot, canvas, card);
             if (overlayWear && WearArt(FindMod(ModEntry.ModId), condition) is Sprite wear)
             {
-                var overlay = new GameObject("card_wear", typeof(RectTransform), typeof(UnityEngine.UI.Image));
-                overlay.transform.SetParent(image.transform, false);
-                var rect = (RectTransform)overlay.transform;
-                rect.anchorMin = Vector2.zero;
-                rect.anchorMax = Vector2.one;
-                rect.offsetMin = rect.offsetMax = Vector2.zero;
-                var wearImage = overlay.GetComponent<UnityEngine.UI.Image>();
+                var wearImage = AddLayer(image.rectTransform, "card_wear").gameObject.AddComponent<Image>();
                 wearImage.sprite = wear;
                 wearImage.preserveAspect = true;
                 wearImage.raycastTarget = false;
@@ -150,6 +143,34 @@ namespace ProbablyTradingCards
                     title.gameObject.AddComponent<CustomUITooltipTrigger>().tooltipText = displayName;
                 }
             }
+        }
+
+        private static Image BuildCardFace(Image slot, Canvas canvas, CardDefinition card)
+        {
+            bool foil = card.Rarity == "SSR" || card.Rarity == "UR";
+            var frame = PrintedCardOutline.For(card);
+            if (!foil && !frame.HasValue) return slot;
+
+            slot.color = Color.clear;
+            slot.raycastTarget = false;
+            var face = AddLayer(slot.rectTransform, "card_face");
+            if (frame.HasValue) PrintedCardOutline.Attach(face, frame.Value);
+            var front = AddLayer(face, "card_artwork").gameObject.AddComponent<Image>();
+            front.sprite = slot.sprite;
+            front.preserveAspect = true;
+            front.raycastTarget = false;
+            if (foil) slot.gameObject.AddComponent<CardInspectionFoil>().Attach(slot.rectTransform, face, canvas, card);
+            return front;
+        }
+
+        private static RectTransform AddLayer(RectTransform parent, string name)
+        {
+            var layer = (RectTransform)new GameObject(name, typeof(RectTransform)).transform;
+            layer.SetParent(parent, false);
+            layer.anchorMin = Vector2.zero;
+            layer.anchorMax = Vector2.one;
+            layer.offsetMin = layer.offsetMax = Vector2.zero;
+            return layer;
         }
 
         private static CustomUIElement AddAppointmentButton(CustomUIBuilder builder) =>

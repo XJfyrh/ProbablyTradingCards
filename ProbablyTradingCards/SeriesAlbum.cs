@@ -24,11 +24,13 @@ namespace ProbablyTradingCards
         private static readonly Color FrameTone = new Color32(67, 53, 50, 255);
         private static readonly Color ProgressInk = new Color32(218, 202, 182, 255);
         private static readonly Color32 PageInk = new Color32(169, 157, 145, 255);
+        private static readonly Color32 PaperTextOutline = new Color32(42, 26, 30, 255);
 
         private sealed class Caption : TagElement
         {
             private readonly int fixedHeight;
             private CustomUITooltipTrigger tooltip;
+            private bool outlined;
 
             internal Caption(int width, int fixedHeight = 0) : base(width, false)
             {
@@ -41,7 +43,7 @@ namespace ProbablyTradingCards
             public override int HeightPixelsClamp(int height) =>
                 fixedHeight > 0 ? fixedHeight : base.HeightPixelsClamp(height);
 
-            internal void Write(string value, Color color, bool bold = false)
+            internal void Write(string value, Color color, bool bold = false, bool withOutline = false)
             {
                 bool textChanged = GetText() != value;
                 if (textChanged) SetText(value);
@@ -50,6 +52,12 @@ namespace ProbablyTradingCards
                 bool styleChanged = label.fontStyle != style;
                 label.fontStyle = style;
                 label.color = color;
+                if (outlined != withOutline)
+                {
+                    outlined = withOutline;
+                    if (outlined) label.outlineColor = PaperTextOutline;
+                    label.outlineWidth = outlined ? 0.18f : 0f;
+                }
                 if (fixedHeight == 0 || (!textChanged && !styleChanged)) return;
 
                 label.verticalAlignment = VerticalAlignmentOptions.Top;
@@ -72,6 +80,7 @@ namespace ProbablyTradingCards
         {
             private readonly bool namesOnPaper;
             internal readonly string Rarity;
+            internal readonly CanvasGroup Opacity;
             internal readonly List<(int id, GameGridInventory pocket, Caption caption)> Slots =
                 new List<(int, GameGridInventory, Caption)>();
             internal bool Secret => Rarity == null;
@@ -80,6 +89,7 @@ namespace ProbablyTradingCards
             {
                 Rarity = rarity;
                 this.namesOnPaper = namesOnPaper;
+                Opacity = handler.gameObject.AddComponent<CanvasGroup>();
                 SetSpacing(0, 0);
                 int[] rows = { VerticalMargin, PocketRowHeight, CardCaptionHeight, PocketRowHeight, CardCaptionHeight, VerticalMargin };
                 for (int row = 0; row < rows.Length; row++)
@@ -117,7 +127,8 @@ namespace ProbablyTradingCards
                     if (Secret) pocket.handler.gameObject.SetActive(known);
                     var definition = CardGame.Catalogue[id];
                     string name = Secret ? definition.AlternateTitle : definition.Name;
-                    caption.Write(known ? name : "", NameColor(definition.Rarity, owned), bold: owned);
+                    caption.Write(known ? name : "", NameColor(definition.Rarity, owned), bold: owned,
+                        withOutline: namesOnPaper && owned);
                     any |= known;
                 }
                 return !Secret || any;
@@ -126,7 +137,7 @@ namespace ProbablyTradingCards
             private Color NameColor(string rarity, bool owned)
             {
                 Color ink = namesOnPaper ? CardRarityPalette.OnPaper(rarity) : CardRarityPalette.For(rarity);
-                return owned ? ink : Color.Lerp(ink, namesOnPaper ? PaperTone : FrameTone, 0.16f);
+                return owned ? CardRarityPalette.For(rarity) : Color.Lerp(ink, namesOnPaper ? PaperTone : FrameTone, 0.16f);
             }
         }
 
@@ -180,6 +191,7 @@ namespace ProbablyTradingCards
             MachineryStyle.Place(paper, 0, 0, BookWidth, BookHeight);
             paper.image.raycastTarget = false;
             paper.rectTransform.SetAsFirstSibling();
+            var turn = AlbumPageTurn.Create(paper.image, art);
 
             var available = new List<int>();
             int current = 0;
@@ -218,11 +230,17 @@ namespace ProbablyTradingCards
 
             void Turn(int delta)
             {
+                if (turn.Turning) return;
                 int target = available.IndexOf(current) + delta;
                 if (target < 0 || target >= available.Count) return;
-                current = available[target];
-                album.ModifyTag(PageTag, tag => tag.Enable().SetInt(current));
-                Refresh();
+                int nextPage = available[target];
+                album.ModifyTag(PageTag, tag => tag.Enable().SetInt(nextPage));
+                turn.Play(delta, book[current].Opacity, () =>
+                {
+                    current = nextPage;
+                    Refresh();
+                    return book[current].Opacity;
+                });
                 CardSounds.Page();
             }
 
@@ -231,6 +249,7 @@ namespace ProbablyTradingCards
             window.AddInventoryStateChangeAction(Refresh);
             window.openCallback += () =>
             {
+                if (turn.Turning) turn.enabled = false;
                 current = album.GetTagReadonly(PageTag).GetInt();
                 Refresh();
             };
