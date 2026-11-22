@@ -19,6 +19,7 @@ namespace ProbablyTradingCards
             RareCardAppointments.Register();
             BranchAlternateSeller.Register();
             CardScalper.Register();
+            InventoryCardFrames.Register();
             ModHook.OnGenerateCustomerEarly += CardCustomers.QueueScheduledCustomers;
             ModHook.OnGenerateCustomerEarly += RareCardAppointments.Queue;
             ModHook.OnGenerateCustomerEarly += BranchAlternateSeller.Queue;
@@ -37,6 +38,7 @@ namespace ProbablyTradingCards
             ModHook.OnGenerateCustomerEarly -= RareCardAppointments.Queue;
             ModHook.OnGenerateCustomerEarly -= BranchAlternateSeller.Queue;
             ModHook.OnGenerateCustomerEarly -= CardScalper.Queue;
+            InventoryCardFrames.Unregister();
             CardScalper.Unregister();
             BranchAlternateSeller.Unregister();
             RareCardAppointments.Unregister();
