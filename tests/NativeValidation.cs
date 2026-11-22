@@ -87,7 +87,7 @@ namespace ProbablyTradingCards
                 return;
             }
             var regular = CardGame.Series.ForPack(PackKind.Slim).CardIds.Where(id => !CardGame.Catalogue[id].IsAlternate).ToArray();
-            foreach (int definition in new[] { regular.First(), regular.Last(), StationLegends.EleanorRev })
+            foreach (int definition in new[] { regular.First(), regular.Last(), 39, 46, StationLegends.EleanorRev })
             {
                 var card = DirectoryMaster.Item(NativeItems.CardId(definition, 2));
                 GeneralHelper.SetItemOwned(card);

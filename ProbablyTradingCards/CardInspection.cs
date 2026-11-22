@@ -72,8 +72,10 @@ namespace ProbablyTradingCards
                 ConfigureAppointmentButton(AddAppointmentButton(builder), item, card, condition);
 
             builder.AddImage(oilSelected ? oilArt : art, artWidth, artHeight, "card_art");
-            var image = builder.Last.image;
-            image.preserveAspect = true;
+            var slot = builder.Last.image;
+            slot.preserveAspect = true;
+            bool foil = card.Rarity == "SSR" || card.Rarity == "UR";
+            var image = foil ? slot.gameObject.AddComponent<CardInspectionFoil>().Attach(slot, canvas, card) : slot;
             if (overlayWear && WearArt(FindMod(ModEntry.ModId), condition) is Sprite wear)
             {
                 var overlay = new GameObject("card_wear", typeof(RectTransform), typeof(UnityEngine.UI.Image));
@@ -94,7 +96,7 @@ namespace ProbablyTradingCards
                 button.OnClick(() =>
                 {
                     oilSelected = !oilSelected;
-                    image.sprite = oilSelected ? oilArt : art;
+                    slot.sprite = image.sprite = oilSelected ? oilArt : art;
                     if (GeneralHelper.IsItemEffectivelyOwned(item))
                         item.SetSpriteQuick(card.Series.OwnerId, oilSelected ? oilIconKey : iconKey);
                     button.SetText(SwitchLabel());
