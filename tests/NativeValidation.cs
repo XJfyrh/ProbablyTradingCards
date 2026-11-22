@@ -1689,6 +1689,13 @@ namespace ProbablyTradingCards
                 PlaceDistributorOrder(distributor, 0);
                 check(front.childItems.Count(item => item.identifier == NativeItems.PackId) == 1, "distributor puts one copy of a SKU on the counter");
                 check(front.childItems.Count(item => item.identifier == NativeItems.AlbumId) == 1, "distributor always carries one album");
+                GameItem cutter = front.childItems.Single(item => item.identifier == CutterIntegration.ItemId);
+                check(cutter.GetNegociatedValue() == cutter.GetBaseValue() &&
+                    cutter.FindItemFeatureByID(CardCustomers.DistributorPremiumId) == null,
+                    "distributor sells one native box cutter at its regular price");
+                BuyFromDistributor(cutter, (int)cutter.GetNegociatedValue());
+                check(front.childItems.All(item => item.identifier != CutterIntegration.ItemId),
+                    "the box cutter does not replenish on purchase");
                 for (int purchase = 0; purchase < CardCustomerRules.WeeklyNightPacks; purchase++)
                 {
                     GameItem pack = front.childItems.First(item => item.identifier == NativeItems.PackId);
@@ -1700,6 +1707,8 @@ namespace ProbablyTradingCards
                     temporary.Add(restoredOffer);
                     check(restoredOffer.GetNegociatedValue() == 48 && !NativeItems.ReadPack(restoredOffer).resealed, "saved offer retains price and genuine contents");
                     BuyFromDistributor(pack, 48);
+                    if (purchase == 0)
+                        check(CutterIntegration.CanCutPack(cutter, pack), "the purchased box cutter can open an owned pack");
                     check(pack.GetNegociatedValue() == CardGame.PackValue(PackKind.NightStories) && pack.FindItemFeatureByID(CardCustomers.DistributorPremiumId) == null, "native purchase cleanup removes the supplier premium");
                     check(JsonConvert.SerializeObject(data) == JsonConvert.SerializeObject(NativeItems.ReadPack(pack)), "purchase preserves hidden contents and tear rolls");
                     GameItem restoredPurchase = RoundTripItem(pack);
@@ -1713,7 +1722,7 @@ namespace ProbablyTradingCards
                 GameItem album = front.childItems.Single(item => item.identifier == NativeItems.AlbumId);
                 BuyFromDistributor(album, (int)album.GetNegociatedValue());
                 album.Destroy();
-                check(front.childItems.Count == 0, "album and pack quotas stop each SKU from replenishing");
+                check(front.childItems.Count == 0, "album, pack and cutter quotas stop each SKU from replenishing");
                 distributor = CardCustomers.CreateDistributor();
                 PlaceDistributorOrder(distributor, 0);
                 check(front.childItems.Count == 0, "same week's quotas survive reconstruction of the issuer");
@@ -1728,7 +1737,8 @@ namespace ProbablyTradingCards
                     StoreStation.Instance.dayCounter = day;
                     distributor = CardCustomers.CreateDistributor();
                     PlaceDistributorOrder(distributor, 0);
-                    var expected = new List<string> { NativeItems.PackId, NativeItems.SlimPackId, NativeItems.LegendsAlbumId, NativeItems.AlbumId };
+                    var expected = new List<string> { CutterIntegration.ItemId, NativeItems.PackId, NativeItems.SlimPackId,
+                        NativeItems.LegendsAlbumId, NativeItems.AlbumId };
                     if (day >= 16) expected.Add(NativeItems.FatPackId);
                     if (day >= 23) expected.Add(NativeItems.SlimBoxId);
                     if (day >= 30) expected.Add(NativeItems.FatBoxId);
@@ -1758,7 +1768,7 @@ namespace ProbablyTradingCards
                     StoreStation.Instance.dayCounter = expansions.Min(series => series.ReleaseDay) - 1;
                     check(CardCustomers.CreateDistributor().mainDialogue.choices.Count == 0,
                         "unreleased expansions do not change the built-in order");
-                    StoreStation.Instance.dayCounter = expansions.Max(series => series.ReleaseDay);
+                    StoreStation.Instance.dayCounter = Math.Max(37, expansions.Max(series => series.ReleaseDay));
                 }
                 for (int index = 0; index < expansions.Count; index++)
                 {
@@ -1770,16 +1780,29 @@ namespace ProbablyTradingCards
                     string packId = NativeItems.PackItemId(series.PackKind);
                     var albumOffer = front.childItems.Single(item => item.identifier == albumId);
                     var packOffer = front.childItems.Single(item => item.identifier == packId);
-                    check(front.childItems.Count == 2 && !NativeItems.ReadPack(packOffer).resealed &&
+                    check(front.childItems.Count == (index == 0 ? 3 : 2) && !NativeItems.ReadPack(packOffer).resealed &&
                         packOffer.GetNegociatedValue() == Math.Round(packOffer.GetBaseValue() * 1.2) &&
                         albumOffer.GetNegociatedValue() == albumOffer.GetBaseValue(), "expansion order uses its own shelf and prices");
+                    if (index == 0)
+                    {
+                        GameItem tool = front.childItems.Single(item => item.identifier == CutterIntegration.ItemId);
+                        BuyFromDistributor(tool, (int)tool.GetNegociatedValue());
+                        tool.Destroy();
+                    }
                     BuyFromDistributor(albumOffer, (int)albumOffer.GetNegociatedValue());
                     albumOffer.Destroy();
                     BuyFromDistributor(packOffer, (int)packOffer.GetNegociatedValue());
                     packOffer.Destroy();
                     check(front.childItems.Count == 1 && front.childItems.Single().identifier == packId,
                         "expansion sale replenishes its pack and limits its album to one per visit");
-                    foreach (GameItem item in front.childItems.ToList()) item.Destroy();
+                    ClearCounter();
+                }
+                if (expansions.Count > 0)
+                {
+                    PlaceDistributorOrder(CardCustomers.CreateDistributor(), 0);
+                    check(front.childItems.All(item => item.identifier != CutterIntegration.ItemId),
+                        "expansion and built-in orders share one weekly box cutter quota");
+                    ClearCounter();
                 }
                 CardCustomers.Unregister();
                 check(!StoreClientList.generalPool.entries.Any(item => item.create == (Func<StoreClient>)CardCustomers.CreateSeller),
