@@ -174,8 +174,9 @@ namespace ProbablyTradingCards
                         if (i != 1)
                         {
                             float seamX = (i == 0 ? 1f : -1f) * (width * 0.5f - 1.2f);
+                            var tint = card.RarityColor;
                             seams[i] = Paint(clip.rectTransform, "exposed_emulsion_edge", new Vector2(2.4f, size.y),
-                                Vector2.right * seamX, new Color32(182, 223, 255, 0));
+                                Vector2.right * seamX, new Color32(tint.r, tint.g, tint.b, 0));
                         }
                         centers[i] = center;
                         edge += width;
@@ -203,8 +204,8 @@ namespace ProbablyTradingCards
                         pane.anchoredPosition = new Vector2(centers[i] + side * 75f * separation, drift * separation);
                         pane.localRotation = Quaternion.Euler(0f, 0f, -side * 13f * separation);
                         pane.localScale = new Vector3(1f - 0.14f * separation, 1f + 0.02f * separation, 1f);
-                        var silver = side == 0 ? new Color32(209, 231, 249, 255) : new Color32(161, 190, 241, 255);
-                        image.color = Color.Lerp(silver, Color.white, settled);
+                        var emulsion = Color.Lerp(card.RarityColor, Color.white, side == 0 ? 0.56f : 0.22f);
+                        image.color = Color.Lerp(emulsion, Color.white, settled);
                         if (seams[i] != null)
                         {
                             var tint = seams[i].color;

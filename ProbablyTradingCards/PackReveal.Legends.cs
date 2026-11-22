@@ -65,26 +65,6 @@ namespace ProbablyTradingCards
                 cards[featureIndex].Root.SetAsLastSibling();
             }
 
-            internal static int Rank(string value)
-            {
-                switch (value)
-                {
-                    case "R": return 1;
-                    case "SR": return 2;
-                    case "SSR": return 3;
-                    case "UR": return 4;
-                    default: return 0;
-                }
-            }
-
-            internal static Color RankColor(int rank)
-            {
-                if (rank == 4) return new Color32(254, 184, 148, 255);
-                if (rank == 3) return new Color32(178, 198, 255, 255);
-                if (rank == 2) return SuperRare;
-                return Rare;
-            }
-
             private static float Ease(float from, float to, float age) =>
                 Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(from, to, age));
 
@@ -171,14 +151,16 @@ namespace ProbablyTradingCards
                     reflectedLight = MakeRect(card.Face.rectTransform, "reflected_light", new Vector2(56, 310), Vector2.zero);
                     reflectedLight.localRotation = Quaternion.Euler(0, 0, Rank == 1 ? -67 : -22);
                     reflection = reflectedLight.gameObject.AddComponent<CanvasGroup>();
+                    var tint = card.RarityColor;
                     if (Rank == 1)
-                        Paint(reflectedLight, "reflection", new Vector2(9, 310), Vector2.zero, new Color(0.8f, 0.95f, 1f, 0.32f));
+                        Paint(reflectedLight, "reflection", new Vector2(9, 310), Vector2.zero, new Color32(tint.r, tint.g, tint.b, 82));
                     else
                     {
-                        Paint(reflectedLight, "refraction_blue", new Vector2(26, 310), Vector2.left * 12f,
-                            new Color(0.37f, 0.76f, 1f, 0.44f));
-                        Paint(reflectedLight, "refraction_copper", new Vector2(18, 310), Vector2.right * 11f,
-                            new Color(1f, 0.64f, 0.58f, 0.40f));
+                        Paint(reflectedLight, "refraction_main", new Vector2(26, 310), Vector2.left * 12f,
+                            new Color32(tint.r, tint.g, tint.b, 112));
+                        Color32 haze = Color.Lerp(tint, Color.white, 0.37f);
+                        Paint(reflectedLight, "refraction_soft", new Vector2(18, 310), Vector2.right * 11f,
+                            new Color32(haze.r, haze.g, haze.b, 102));
                         Paint(reflectedLight, "refraction_edge", new Vector2(4, 310), Vector2.right * 22f,
                             new Color(1f, 0.94f, 0.83f, 0.82f));
                     }
@@ -235,7 +217,7 @@ namespace ProbablyTradingCards
                     if (Suspended)
                         ((RectTransform)card.Caption.transform).anchoredPosition = Vector2.down * (145f + 12f * lift);
                     card.Opacity.alpha = featured ? 1f : 1f - backdropDim;
-                    if (Rank > 0 && turnAge >= 0f) card.Border.color = Color.Lerp(Color.white, RankColor(Rank), Ease(0f, 0.22f, turnAge));
+                    if (Rank > 0 && turnAge >= 0f) card.Border.color = Color.Lerp(Color.white, card.RarityColor, Ease(0f, 0.22f, turnAge));
                     if (reflectedLight != null) DrawReflection(age);
                     if (print != null)
                     {

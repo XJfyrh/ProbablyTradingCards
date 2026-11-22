@@ -284,9 +284,11 @@ namespace ProbablyTradingCards
             for (int index = 0; index < series.CardIds.Count; index++)
             {
                 int definition = series.CardIds[index];
+                var cardDefinition = CardGame.Catalogue[definition];
                 var pocket = new GameGridInventory(1, 2);
                 pockets.Add((definition, pocket));
-                layout.Attach(new TagElement().SetText(CardGame.Catalogue[definition].Name),
+                layout.Attach(new TagElement().SetText(cardDefinition.Name,
+                        color: CardRarityPalette.NativeColor(CardRarityPalette.For(cardDefinition.Rarity))),
                     index % 3, index / 3 * 2, minimumWidth: 66, minimumHeight: 16);
                 layout.Attach(pocket, index % 3, index / 3 * 2 + 1,
                     minimumWidth: 66, minimumHeight: 38);

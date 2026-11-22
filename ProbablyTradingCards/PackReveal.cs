@@ -17,8 +17,7 @@ namespace ProbablyTradingCards
         private static readonly float[] RevealAt = { 0.62f, 0.89f, 1.36f };
         private static readonly int[] TearDepths = { 20, 25, 22, 28, 24 };
         private static readonly Color Plain = new Color32(118, 101, 106, 255);
-        private static readonly Color Rare = new Color32(135, 193, 188, 255);
-        private static readonly Color SuperRare = new Color32(240, 190, 115, 255);
+        private static readonly Color AlbumSlotColor = new Color32(135, 193, 188, 255);
         private static int closeFrame = -1;
 
         internal sealed class Result
@@ -68,6 +67,7 @@ namespace ProbablyTradingCards
             internal GameObject ResultDetails;
             internal Button Button;
             internal int Rank;
+            internal Color32 RarityColor;
             internal bool Turned;
 
             internal bool RevealFace(float age)
@@ -107,13 +107,15 @@ namespace ProbablyTradingCards
                 bool justTurned = RevealFace(age);
 
                 if (Turned && Rank > 0)
-                    Border.color = Color.Lerp(Color.white, Rank == 1 ? Rare : SuperRare, Mathf.Clamp01(age / 0.26f));
+                    Border.color = Color.Lerp(Color.white, RarityColor, Mathf.Clamp01(age / 0.26f));
                 if (RareSweep != null)
                 {
                     RareSweep.enabled = age >= 0f && age < RareSweepDuration;
                     RareSweep.rectTransform.anchoredPosition =
                         Vector2.up * Mathf.Lerp(-112f, 112f, age / RareSweepDuration);
-                    RareSweep.color = new Color(0.55f, 0.91f, 0.93f, 0.40f * rareBounce);
+                    Color sweep = RarityColor;
+                    sweep.a = 0.40f * rareBounce;
+                    RareSweep.color = sweep;
                 }
                 Spotlight?.Draw(age, lift);
                 return justTurned;
@@ -133,12 +135,12 @@ namespace ProbablyTradingCards
             private readonly RectTransform light;
             private readonly CanvasGroup lightOpacity;
 
-            internal SpotlightReveal(RectTransform root, Image art, Vector2 size)
+            internal SpotlightReveal(RectTransform root, Image art, Vector2 size, Color32 tint)
             {
                 brackets = MakeRect(root, "inspection_brackets", size + new Vector2(18, 13), Vector2.zero);
                 bracketOpacity = brackets.gameObject.AddComponent<CanvasGroup>();
                 Vector2 halfSize = brackets.sizeDelta / 2f;
-                var illuminated = new Color32(157, 231, 222, 245);
+                var illuminated = new Color32(tint.r, tint.g, tint.b, 245);
                 for (int x = -1; x <= 1; x += 2)
                     for (int y = -1; y <= 1; y += 2)
                     {
@@ -153,8 +155,8 @@ namespace ProbablyTradingCards
                 light = MakeRect(art.rectTransform, "inspection_light", new Vector2(63, 285), Vector2.zero);
                 light.localRotation = Quaternion.Euler(0, 0, -12);
                 lightOpacity = light.gameObject.AddComponent<CanvasGroup>();
-                Paint(light, "inspection_soft_light", new Vector2(63, 285), Vector2.zero, new Color32(187, 217, 216, 42));
-                Paint(light, "inspection_inner_light", new Vector2(24, 285), Vector2.zero, new Color32(215, 228, 217, 66));
+                Paint(light, "inspection_soft_light", new Vector2(63, 285), Vector2.zero, new Color32(tint.r, tint.g, tint.b, 42));
+                Paint(light, "inspection_inner_light", new Vector2(24, 285), Vector2.zero, new Color32(tint.r, tint.g, tint.b, 66));
                 Paint(light, "inspection_highlight", new Vector2(5, 285), Vector2.zero, new Color32(235, 244, 224, 114));
             }
 
@@ -341,7 +343,8 @@ namespace ProbablyTradingCards
         private RevealedCard BuildCard(Card card, Sprite face, Sprite wear, Sprite pack, bool fillsSlot, bool legendPack)
         {
             var definition = CardGame.Catalogue[card.Definition];
-            int rank = LegendsReveal.Rank(definition.Rarity);
+            int rank = CardRarityPalette.Rank(definition.Rarity);
+            Color32 rarityColor = CardRarityPalette.For(definition.Rarity);
             var cardSize = new Vector2(146, 219);
             var root = MakeRect(stage, "card", cardSize, Vector2.zero);
             var surface = MakeRect(root, "card_surface", cardSize, Vector2.zero);
@@ -367,14 +370,13 @@ namespace ProbablyTradingCards
             if (!legendPack && rank == 1)
             {
                 art.gameObject.AddComponent<RectMask2D>();
-                rareSweep = Paint(art.rectTransform, "rare_sweep", new Vector2(cardSize.x, 12), Vector2.zero, Rare);
+                rareSweep = Paint(art.rectTransform, "rare_sweep", new Vector2(cardSize.x, 12), Vector2.zero, rarityColor);
             }
-            var spotlight = !legendPack && rank == 2 ? new SpotlightReveal(root, art, cardSize) : null;
+            var spotlight = !legendPack && rank == 2 ? new SpotlightReveal(root, art, cardSize, rarityColor) : null;
             art.gameObject.SetActive(false);
 
             var caption = MakeRect(root, "card_details", new Vector2(180, 64), new Vector2(0, -145));
-            var title = AddCaption(caption, definition.Name + "  " + definition.Rarity, 21, 18,
-                rank == 0 ? new Color32(223, 210, 196, 255) : LegendsReveal.RankColor(rank));
+            var title = AddCaption(caption, definition.Name + "  " + definition.Rarity, 21, 18, rarityColor);
             if (legendPack)
             {
                 title.enableAutoSizing = true;
@@ -387,12 +389,12 @@ namespace ProbablyTradingCards
             bool damaged = card.Condition < card.OriginalCondition;
             AddCaption(details, damaged ? CardGame.Conditions[card.OriginalCondition] + " → " + condition : condition,
                 17, -4, damaged ? new Color32(228, 162, 116, 255) : new Color32(187, 174, 165, 255));
-            if (fillsSlot) AddCaption(details, "可补卡位", 16, -25, Rare);
+            if (fillsSlot) AddCaption(details, "可补卡位", 16, -25, AlbumSlotColor);
             var resultDetails = deferDetails ? details.gameObject : null;
             if (resultDetails != null) resultDetails.SetActive(false);
             caption.gameObject.SetActive(false);
             var alternateMark = legendPack && definition.IsAlternate
-                ? AddCaption(root, "隐藏异画", 17, 126, new Color32(244, 211, 173, 255)).gameObject.AddComponent<CanvasGroup>()
+                ? AddCaption(root, CardRarityPalette.HiddenAlternateCaption, 17, 126, Color.white).gameObject.AddComponent<CanvasGroup>()
                 : null;
             if (alternateMark != null) alternateMark.gameObject.SetActive(false);
             return new RevealedCard
@@ -400,7 +402,7 @@ namespace ProbablyTradingCards
                 Root = root, Surface = surface, Back = back.gameObject, Face = art, Border = border,
                 Opacity = root.gameObject.AddComponent<CanvasGroup>(), RareSweep = rareSweep, Spotlight = spotlight,
                 Caption = caption.gameObject.AddComponent<CanvasGroup>(), AlternateMark = alternateMark,
-                ResultDetails = resultDetails, Button = button, Rank = rank
+                ResultDetails = resultDetails, Button = button, Rank = rank, RarityColor = rarityColor
             };
         }
 

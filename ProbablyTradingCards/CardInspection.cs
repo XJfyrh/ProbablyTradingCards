@@ -59,6 +59,7 @@ namespace ProbablyTradingCards
             float availableHeight = Screen.height / canvas.scaleFactor;
             float availableWidth = Screen.width / canvas.scaleFactor;
             var frame = builder.Handle.frame;
+            if (frame != null && frame.titleText != null) frame.titleText.color = CardRarityPalette.For(card.Rarity);
             bool showHeaderButton = canBook && frame != null && frame.closeButton != null;
             float chromeHeight = (canSwitchArt ? 152 : 112) + (canBook && !showHeaderButton ? 40 : 0);
             float artHeight = Mathf.Min(720, availableHeight - chromeHeight - 40, (availableWidth - 80) * 1.5f);

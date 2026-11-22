@@ -113,29 +113,27 @@ namespace ProbablyTradingCards
             if (Textures.TryGetValue(rarity, out Texture2D texture)) return texture;
 
             var pixels = new Color32[Width * Height];
+            Color32 tint = CardRarityPalette.For(rarity);
             switch (rarity)
             {
                 case "R":
-                    DrawEnd(pixels, top: true, new Color32(131, 196, 178, 255));
+                    DrawEnd(pixels, top: true, tint);
                     break;
                 case "SR":
-                    var violet = new Color32(189, 178, 238, 255);
-                    DrawEnd(pixels, top: true, violet);
-                    DrawEnd(pixels, top: false, violet);
+                    DrawEnd(pixels, top: true, tint);
+                    DrawEnd(pixels, top: false, tint);
                     break;
                 case "SSR":
-                    var amber = new Color32(227, 188, 113, 255);
                     DrawSides(pixels, new Color32(142, 106, 64, 255));
-                    DrawEnd(pixels, top: true, amber);
-                    DrawEnd(pixels, top: false, amber);
-                    Fill(pixels, 3, Top - 1, Width - 6, 1, new Color32(227, 188, 113, 140));
+                    DrawEnd(pixels, top: true, tint);
+                    DrawEnd(pixels, top: false, tint);
+                    Fill(pixels, 3, Top - 1, Width - 6, 1, new Color32(tint.r, tint.g, tint.b, 140));
                     break;
                 case "UR":
-                    var coral = new Color32(246, 141, 124, 255);
                     var copper = new Color32(185, 94, 82, 255);
                     DrawSides(pixels, copper);
-                    DrawEnd(pixels, top: true, coral);
-                    DrawEnd(pixels, top: false, coral);
+                    DrawEnd(pixels, top: true, tint);
+                    DrawEnd(pixels, top: false, tint);
                     Fill(pixels, 1, Top - 2, 2, 2, copper);
                     Fill(pixels, Width - 3, Top - 2, 2, 2, copper);
                     Fill(pixels, 1, Bottom + 1, 2, 2, copper);
