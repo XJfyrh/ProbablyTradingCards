@@ -18,6 +18,8 @@ namespace ProbablyTradingCards
         private static readonly int[] TearDepths = { 20, 25, 22, 28, 24 };
         private static readonly Color Plain = new Color32(118, 101, 106, 255);
         private static readonly Color AlbumSlotColor = new Color32(135, 193, 188, 255);
+        private static readonly Color32 DamageColor = new Color32(228, 162, 116, 255);
+        private static readonly Color32 ResultNoteColor = new Color32(180, 169, 161, 255);
         private static int closeFrame = -1;
 
         internal sealed class Result
@@ -65,6 +67,8 @@ namespace ProbablyTradingCards
             internal CanvasGroup Caption;
             internal CanvasGroup AlternateMark;
             internal GameObject ResultDetails;
+            internal RectTransform CompactResult;
+            internal CustomUITooltipTrigger ResultTooltip;
             internal Button Button;
             internal int Rank;
             internal Color32 RarityColor;
@@ -204,6 +208,7 @@ namespace ProbablyTradingCards
         private float startedAt;
         private float superRareAt = float.PositiveInfinity;
         private float finishAt = FinishAt;
+        private int resultAlbumSlots;
 
         internal static bool TryShow(Result result)
         {
@@ -289,7 +294,7 @@ namespace ProbablyTradingCards
                 bool fillsSlot = !marked.Contains(card.Definition) && albumPockets.Exists(pocket =>
                     pocket.childItems.Count == 0 && pocket.mayInventoryAddItemFunc?.Invoke(card.Item, pocket) == true);
                 if (fillsSlot) marked.Add(card.Definition);
-                cards[index] = BuildCard(card, faces[index], wear[index], pack, fillsSlot, legendPack);
+                cards[index] = BuildCard(card, faces[index], wear[index], pack, fillsSlot, legendPack, fat);
                 if (cards[index].Spotlight != null)
                 {
                     superRareAt = Mathf.Min(superRareAt, RevealAt[index]);
@@ -307,6 +312,11 @@ namespace ProbablyTradingCards
 
             outcome = builder.AddLabel("", "pack_outcome").Last.SetPreferredSize(480f * scale, 23f);
             outcome.text.alignment = TextAlignmentOptions.Center;
+            if (fat)
+            {
+                resultAlbumSlots = marked.Count;
+                outcome.text.fontSize = 16f * scale;
+            }
             next = builder.AddButton("全部揭示", Advance, "pack_reveal_action").Last.SetPreferredSize(142f, 30f);
             builder.End();
             startedAt = Time.unscaledTime;
@@ -340,7 +350,7 @@ namespace ProbablyTradingCards
             Paint(mask, "foil", wrapper.sizeDelta, -center, Color.white).sprite = pack;
         }
 
-        private RevealedCard BuildCard(Card card, Sprite face, Sprite wear, Sprite pack, bool fillsSlot, bool legendPack)
+        private RevealedCard BuildCard(Card card, Sprite face, Sprite wear, Sprite pack, bool fillsSlot, bool legendPack, bool fat)
         {
             var definition = CardGame.Catalogue[card.Definition];
             int rank = CardRarityPalette.Rank(definition.Rarity);
@@ -383,27 +393,65 @@ namespace ProbablyTradingCards
                 title.fontSizeMin = 13f;
                 title.fontSizeMax = 21f;
             }
-            bool deferDetails = spotlight != null || legendPack;
-            var details = deferDetails ? MakeRect(caption, "result_details", caption.sizeDelta, Vector2.zero) : caption;
             string condition = CardGame.Conditions[card.Condition];
             bool damaged = card.Condition < card.OriginalCondition;
-            AddCaption(details, damaged ? CardGame.Conditions[card.OriginalCondition] + " → " + condition : condition,
-                17, -4, damaged ? new Color32(228, 162, 116, 255) : new Color32(187, 174, 165, 255));
-            if (fillsSlot) AddCaption(details, "可补卡位", 16, -25, AlbumSlotColor);
-            var resultDetails = deferDetails ? details.gameObject : null;
-            if (resultDetails != null) resultDetails.SetActive(false);
+            if (damaged) condition = CardGame.Conditions[card.OriginalCondition] + " → " + condition;
+            GameObject resultDetails = null;
+            if (!fat)
+            {
+                bool deferDetails = spotlight != null || legendPack;
+                var details = deferDetails ? MakeRect(caption, "result_details", caption.sizeDelta, Vector2.zero) : caption;
+                AddCaption(details, condition, 17, -4, damaged ? DamageColor : new Color32(187, 174, 165, 255));
+                if (fillsSlot) AddCaption(details, "可补卡位", 16, -25, AlbumSlotColor);
+                if (deferDetails)
+                {
+                    resultDetails = details.gameObject;
+                    resultDetails.SetActive(false);
+                }
+            }
             caption.gameObject.SetActive(false);
             var alternateMark = legendPack && definition.IsAlternate
                 ? AddCaption(root, CardRarityPalette.HiddenAlternateCaption, 17, 126, Color.white).gameObject.AddComponent<CanvasGroup>()
                 : null;
             if (alternateMark != null) alternateMark.gameObject.SetActive(false);
-            return new RevealedCard
+            var revealed = new RevealedCard
             {
                 Root = root, Surface = surface, Back = back.gameObject, Face = art, Border = border,
                 Opacity = root.gameObject.AddComponent<CanvasGroup>(), RareSweep = rareSweep, Spotlight = spotlight,
                 Caption = caption.gameObject.AddComponent<CanvasGroup>(), AlternateMark = alternateMark,
                 ResultDetails = resultDetails, Button = button, Rank = rank, RarityColor = rarityColor
             };
+            if (fat) BuildCompactResult(revealed, definition, condition, damaged || card.Condition != 2, fillsSlot);
+            return revealed;
+        }
+
+        private void BuildCompactResult(RevealedCard card, CardDefinition definition, string condition, bool worn, bool fillsSlot)
+        {
+            var caption = MakeRect(stage, "compact_card_result", new Vector2(222, 48), Vector2.zero);
+            var title = AddCaption(caption, definition.Name + "  <size=85%>" + definition.Rarity + "</size>",
+                16, -79, card.RarityColor);
+            title.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, caption.sizeDelta.x);
+            title.fontWeight = FontWeight.SemiBold;
+            title.enableAutoSizing = true;
+            title.fontSizeMin = 13f;
+            title.fontSizeMax = 16f;
+            title.overflowMode = TextOverflowModes.Ellipsis;
+
+            string note = definition.IsAlternate ? CardRarityPalette.HiddenAlternateCaption : "";
+            if (worn)
+            {
+                if (note.Length > 0) note += "   ";
+                note += CardRarityPalette.Tint(condition, DamageColor);
+            }
+            if (note.Length > 0) AddCaption(caption, note, 13, -98, ResultNoteColor);
+            caption.gameObject.SetActive(false);
+            card.CompactResult = caption;
+
+            var tooltip = card.Button.gameObject.AddComponent<CustomUITooltipTrigger>();
+            tooltip.tooltipText = CardRarityPalette.Tint(definition.Name + "  " + definition.Rarity, card.RarityColor) +
+                "\n" + condition + (fillsSlot ? "\n可补卡位" : "");
+            tooltip.enabled = false;
+            card.ResultTooltip = tooltip;
         }
 
         private TextMeshProUGUI AddCaption(RectTransform parent, string value, float fontSize, float y, Color color)
@@ -512,9 +560,23 @@ namespace ProbablyTradingCards
             foreach (var card in cards)
             {
                 if (card.ResultDetails != null) card.ResultDetails.SetActive(true);
+                if (card.CompactResult != null)
+                {
+                    card.Caption.gameObject.SetActive(false);
+                    if (card.AlternateMark != null) card.AlternateMark.gameObject.SetActive(false);
+                    card.CompactResult.anchoredPosition = card.Root.anchoredPosition;
+                    card.CompactResult.gameObject.SetActive(true);
+                    card.ResultTooltip.enabled = true;
+                }
                 card.Button.interactable = true;
             }
-            outcome.SetText(resealed ? "封边残留旧胶，这包重新封过" : "");
+            string resultNote = resealed ? "封边残留旧胶，这包重新封过" : "";
+            if (resultAlbumSlots > 0)
+            {
+                if (resultNote.Length > 0) resultNote += "    ";
+                resultNote += CardRarityPalette.Tint($"可补 {resultAlbumSlots} 个卡位", ResultNoteColor);
+            }
+            outcome.SetText(resultNote);
             next.SetText("收起");
         }
 

@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -6,6 +7,7 @@ namespace ProbablyTradingCards
     internal static class CardInspection
     {
         internal const string WindowId = "neon_card_inspection";
+        private static readonly Color32 FlavorInk = new Color32(180, 168, 161, 255);
 
         internal static void Configure(GameItem item, int definition, int condition)
         {
@@ -53,23 +55,38 @@ namespace ProbablyTradingCards
             bool oilSelected = canSwitchArt && item.spritePath == oilIconKey;
             bool canBook = RareCardAppointments.CanBook(item, card);
 
-            var builder = CustomUIManager.Window(WindowId, item.GetDisplayName());
+            string displayName = item.GetDisplayName();
+            var builder = CustomUIManager.Window(WindowId, displayName);
             if (builder == null) return;
             var canvas = builder.Handle.root.GetComponentInParent<Canvas>();
             float availableHeight = Screen.height / canvas.scaleFactor;
             float availableWidth = Screen.width / canvas.scaleFactor;
             var frame = builder.Handle.frame;
-            if (frame != null && frame.titleText != null) frame.titleText.color = CardRarityPalette.For(card.Rarity);
+            var title = frame != null ? frame.titleText : null;
+            if (title != null)
+            {
+                title.color = CardRarityPalette.For(card.Rarity);
+                title.enableWordWrapping = false;
+                title.fontSizeMax = title.fontSize;
+                title.fontSizeMin = Mathf.Min(18f, title.fontSizeMax);
+                title.enableAutoSizing = true;
+                title.overflowMode = TextOverflowModes.Ellipsis;
+            }
             bool showHeaderButton = canBook && frame != null && frame.closeButton != null;
-            float chromeHeight = (canSwitchArt ? 152 : 112) + (canBook && !showHeaderButton ? 40 : 0);
+            const float controlHeight = 40f;
+            float chromeHeight = 112f + (canSwitchArt ? controlHeight : 0f) + (canBook && !showHeaderButton ? controlHeight : 0f);
             float artHeight = Mathf.Min(720, availableHeight - chromeHeight - 40, (availableWidth - 80) * 1.5f);
             float artWidth = artHeight / 1.5f;
-            builder.SetSize(artWidth + 48, artHeight + chromeHeight).Center().SetDraggable(true).SetCloseOnEscape(closeOnEscape);
-            builder.BeginColumn(8, TextAnchor.UpperCenter);
+            if (builder.CurrentContainer.TryGetComponent(out VerticalLayoutGroup content))
+                content.childAlignment = TextAnchor.UpperCenter;
+            builder.BeginColumn(0, TextAnchor.UpperCenter);
             if (showHeaderButton)
                 ConfigureAppointmentButton(AddHeaderButton(builder, frame), item, card, condition);
             else if (canBook)
+            {
                 ConfigureAppointmentButton(AddAppointmentButton(builder), item, card, condition);
+                builder.AddSpace(8);
+            }
 
             builder.AddImage(oilSelected ? oilArt : art, artWidth, artHeight, "card_art");
             var slot = builder.Last.image;
@@ -92,7 +109,7 @@ namespace ProbablyTradingCards
             if (canSwitchArt)
             {
                 string SwitchLabel() => oilSelected ? "切换为蓝晒" : "切换为油画";
-                var button = builder.AddButton(SwitchLabel(), null, "card_art_variant").Last;
+                var button = builder.AddSpace(8).AddButton(SwitchLabel(), null, "card_art_variant").Last;
                 button.OnClick(() =>
                 {
                     oilSelected = !oilSelected;
@@ -102,8 +119,37 @@ namespace ProbablyTradingCards
                     button.SetText(SwitchLabel());
                 });
             }
-            builder.AddLabel(card.Flavor, "card_flavor");
+            if (!string.IsNullOrWhiteSpace(card.Flavor))
+            {
+                var flavor = builder.AddSpace(16).AddLabel(card.Flavor, "card_flavor").Last;
+                flavor.text.color = FlavorInk;
+                flavor.text.fontSize = Mathf.Min(16f, flavor.text.fontSize);
+                flavor.text.fontWeight = FontWeight.Regular;
+                flavor.text.enableWordWrapping = true;
+                flavor.text.alignment = TextAlignmentOptions.Top;
+                float noteHeight = Mathf.Ceil(flavor.text.GetPreferredValues(artWidth, float.PositiveInfinity).y);
+                float visibleHeight = Mathf.Min(56f, noteHeight);
+                flavor.SetPreferredSize(artWidth, visibleHeight);
+                chromeHeight += Mathf.Max(0f, visibleHeight - 32f);
+                if (visibleHeight < noteHeight)
+                {
+                    flavor.text.overflowMode = TextOverflowModes.Ellipsis;
+                    flavor.text.raycastTarget = true;
+                    flavor.SetTooltip(card.Flavor);
+                }
+            }
+            builder.SetSize(artWidth + 48, artHeight + chromeHeight).Center().SetDraggable(true).SetCloseOnEscape(closeOnEscape);
             builder.End().Show();
+            if (title != null)
+            {
+                CustomUIBuilder.RebuildLayout(builder.Handle.Rect);
+                title.ForceMeshUpdate();
+                if (title.isTextTruncated)
+                {
+                    title.raycastTarget = true;
+                    title.gameObject.AddComponent<CustomUITooltipTrigger>().tooltipText = displayName;
+                }
+            }
         }
 
         private static CustomUIElement AddAppointmentButton(CustomUIBuilder builder) =>
@@ -124,12 +170,7 @@ namespace ProbablyTradingCards
             rect.pivot = new Vector2(1f, 0.5f);
             rect.anchoredPosition = new Vector2(-closeButtonClearance, -headerCenter);
             rect.sizeDelta = new Vector2(width, 26);
-            if (frame.titleText != null)
-            {
-                frame.titleText.margin += new Vector4(0, 0, width + 8, 0);
-                frame.titleText.enableWordWrapping = false;
-                frame.titleText.overflowMode = TMPro.TextOverflowModes.Ellipsis;
-            }
+            if (frame.titleText != null) frame.titleText.margin += new Vector4(0, 0, width + 8, 0);
             return button;
         }
 
